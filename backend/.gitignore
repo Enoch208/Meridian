@@ -1,0 +1,20 @@
+# Secrets — NEVER commit
+.env
+.env.local
+*.key
+wallet*.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Runtime data (track record + caches)
+data/
+
+# Swarms framework scratch dir
+agent_workspace/
