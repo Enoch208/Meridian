@@ -16,7 +16,7 @@ import json
 import pathlib
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from meridian.api.schemas import (
@@ -27,6 +27,32 @@ from meridian.api.schemas import (
     TrackRecordSummary,
 )
 from meridian.trackrecord.store import load_calls, derive_scorecard
+
+
+# ---------------------------------------------------------------------------
+# Background job
+# ---------------------------------------------------------------------------
+
+
+def _run_live_pipeline() -> None:
+    """Execute the real Swarms pipeline and write today's artifacts.
+
+    Runs in a FastAPI background task so ``POST /api/run`` returns immediately
+    (the live swarm is slow and credit-bearing). Imports are deferred and
+    ``meridian.run.main`` is looked up at call time so tests can monkeypatch it.
+    Any failure is logged, never raised — a bad run must not crash the web
+    process or leave the request hanging.
+    """
+    import logging
+
+    from meridian import run
+
+    log = logging.getLogger("meridian.api")
+    try:
+        picks = run.main(["--live"])
+        log.info("Live pipeline run wrote %d pick(s)", len(picks))
+    except Exception:  # pragma: no cover - defensive, exercised in prod only
+        log.exception("Live pipeline run failed")
 
 
 # ---------------------------------------------------------------------------
@@ -126,16 +152,18 @@ def create_app() -> FastAPI:
 
     @app.post("/api/run", response_model=RunResponse)
     def run_pipeline(
+        background_tasks: BackgroundTasks,
         x_run_secret: str = Header(default="", alias="x-run-secret"),
     ) -> RunResponse:
-        """Trigger a pipeline re-run (manual / demo use only).
+        """Trigger a real Swarms pipeline run.
 
         Guarded by the ``x-run-secret`` request header matching
         ``settings.run_secret``.  Returns 403 if the secret doesn't match or
         if ``run_secret`` is empty (no secret configured → deny all).
 
-        For v1 this handler only validates the secret and queues the job;
-        actual pipeline integration is wired separately.
+        On success the live swarm run is scheduled as a background task and the
+        endpoint returns ``{"status": "queued"}`` immediately — the run writes
+        ``latest_shortlist.json`` and appends to ``calls.jsonl`` when it finishes.
         """
         from meridian.config import get_settings  # read at request time
 
@@ -145,6 +173,7 @@ def create_app() -> FastAPI:
         if not settings.run_secret or x_run_secret != settings.run_secret:
             raise HTTPException(status_code=403, detail="Forbidden")
 
+        background_tasks.add_task(_run_live_pipeline)
         return RunResponse(status="queued")
 
     return app

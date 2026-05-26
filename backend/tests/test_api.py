@@ -127,13 +127,30 @@ def test_run_endpoint_wrong_secret(tmp_path, monkeypatch):
 
 
 def test_run_endpoint_correct_secret(tmp_path, monkeypatch):
-    """POST /api/run with correct secret returns queued status."""
+    """POST /api/run with correct secret returns queued and schedules a live run.
+
+    The real pipeline is monkeypatched so no network call / credit is spent —
+    we only assert the endpoint wires the background task to the live run.
+    """
+    import meridian.run as run_mod
+
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("MERIDIAN_RUN_SECRET", "correct-secret")
+
+    invoked = {}
+
+    def fake_main(argv=None):
+        invoked["argv"] = argv
+        return []
+
+    monkeypatch.setattr(run_mod, "main", fake_main)
+
     client = TestClient(create_app())
     resp = client.post("/api/run", headers={"x-run-secret": "correct-secret"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "queued"
+    # The background task ran the live pipeline exactly once, in --live mode.
+    assert invoked.get("argv") == ["--live"]
 
 
 def test_run_endpoint_no_secret_configured(tmp_path, monkeypatch):
