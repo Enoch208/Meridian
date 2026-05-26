@@ -1,0 +1,50 @@
+# Render Blueprint for Meridian Backend
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy by connecting your GitHub repo in the Render dashboard and pointing it
+# at this file, or use the "New > Blueprint" flow and paste the repo URL.
+
+services:
+  - type: web
+    name: meridian-backend
+    env: docker
+    # Path to the Dockerfile, relative to the repo root
+    dockerfilePath: ./backend/Dockerfile
+    # Docker build context — the backend/ directory
+    dockerContext: ./backend
+    # Render injects PORT automatically; the Dockerfile CMD honours it via ${PORT:-8000}
+    plan: free  # upgrade to "starter" or higher for persistent disk support
+
+    # ── Persistent disk (optional but strongly recommended) ──────────────────
+    # Attaching a disk preserves calls.jsonl (the track record) across deploys.
+    # Remove this block if you want the simplest possible free-tier setup —
+    # just know that the track record will reset on every deploy/restart.
+    #
+    # disk:
+    #   name: meridian-data
+    #   mountPath: /data
+    #   sizeGB: 1        # smallest available on Render paid plans
+
+    envVars:
+      # ── Swarms cloud API key (secret — never committed to git) ───────────
+      - key: SWARMS_API_KEY
+        sync: false        # set this manually in the Render dashboard
+
+      # ── Solana RPC endpoint ──────────────────────────────────────────────
+      - key: SOLANA_RPC_URL
+        value: https://api.mainnet-beta.solana.com   # public default; replace with a private RPC for production
+
+      # ── Scout agent model (must be in Swarms' available-models list) ────
+      - key: MERIDIAN_MODEL
+        value: gpt-4o-mini
+
+      # ── Data directory ────────────────────────────────────────────────────
+      # Set to /data to match the persistent disk mountPath above.
+      # If the disk block is commented out, /data is ephemeral — the track
+      # record will reset on every deploy. You can use /tmp instead.
+      - key: DATA_DIR
+        value: /data
+
+      # ── Run secret (protects the POST /api/run endpoint) ────────────────
+      - key: MERIDIAN_RUN_SECRET
+        sync: false        # set this manually in the Render dashboard

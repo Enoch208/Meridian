@@ -1,0 +1,8 @@
+.venv
+data
+.env
+__pycache__
+*.pyc
+agent_workspace
+tests
+wallet.json
