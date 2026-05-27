@@ -20,14 +20,21 @@ investigating today — with a public, running track record of every call.
 
 `$MRDN` · *worth investigating, never financial advice*
 
-**Try it → [@usemeridianbot on Telegram](https://t.me/usemeridianbot)** · `/picks` for today's call
+**[Live site](https://latch-eta.vercel.app) · [@usemeridianbot](https://t.me/usemeridianbot) · [X](https://x.com/MeridianSWRMS)**
 
 </div>
 
 ---
 
+## Demo
+
+https://github.com/user-attachments/assets/c690023e-a2a9-4639-87cd-57bbde59bea4
+
+---
+
 ## Table of contents
 
+- [Demo](#demo)
 - [The thesis](#the-thesis)
 - [Architecture](#architecture)
 - [How the swarm scores a launch](#how-the-swarm-scores-a-launch)
