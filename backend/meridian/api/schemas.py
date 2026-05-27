@@ -21,6 +21,10 @@ class TokenInfo(BaseModel):
     symbol: str
     address: str
     pair_url: Optional[str] = None
+    image_url: Optional[str] = None
+    website: Optional[str] = None
+    twitter: Optional[str] = None
+    telegram: Optional[str] = None
 
 
 class ScoreBreakdown(BaseModel):
@@ -39,6 +43,7 @@ class TokenMetrics(BaseModel):
     buy_sell_ratio_h1: Optional[float] = None
     buys_h1: Optional[int] = None
     sells_h1: Optional[int] = None
+    holder_count: Optional[int] = None
     price_usd: Optional[float] = None
     price_change_24h: Optional[float] = None
     launchpad: Optional[str] = None

@@ -229,8 +229,18 @@ def create_app() -> FastAPI:
                 price_usd=cand.price_usd
                 if cand.price_usd is not None
                 else mkt.get("usd_price"),
+                fdv=cand.fdv if cand.fdv is not None else mkt.get("fdv"),
+                market_cap=cand.market_cap
+                if cand.market_cap is not None
+                else mkt.get("market_cap"),
                 price_change_24h=mkt.get("price_change_24h"),
                 launchpad=mkt.get("launchpad"),
+                image_url=cand.image_url or mkt.get("icon"),
+                holder_count=mkt.get("holder_count"),
+                # DexScreener's 1h tx counts go stale on new tokens — prefer
+                # Jupiter's when DexScreener has none/zero.
+                buys_h1=cand.buys_h1 if cand.buys_h1 else mkt.get("buys_1h"),
+                sells_h1=cand.sells_h1 if cand.sells_h1 else mkt.get("sells_1h"),
             )
 
         if live:

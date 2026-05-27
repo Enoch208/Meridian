@@ -16,6 +16,18 @@ def parse_token_pairs(raw: dict) -> list[Candidate]:
         age = (time.time() * 1000 - created) / 3_600_000 if created else None
         txh1 = (p.get("txns") or {}).get("h1") or {}
         vol = p.get("volume") or {}
+        info = p.get("info") or {}
+        socials = {
+            s.get("type"): s.get("url")
+            for s in (info.get("socials") or [])
+            if isinstance(s, dict)
+        }
+        websites = info.get("websites") or []
+        website = (
+            websites[0].get("url")
+            if websites and isinstance(websites[0], dict)
+            else None
+        )
         out.append(
             Candidate(
                 address=bt.get("address", ""),
@@ -32,6 +44,10 @@ def parse_token_pairs(raw: dict) -> list[Candidate]:
                 buys_h1=txh1.get("buys"),
                 sells_h1=txh1.get("sells"),
                 price_usd=float(p["priceUsd"]) if p.get("priceUsd") else None,
+                image_url=info.get("imageUrl"),
+                website=website,
+                twitter=socials.get("twitter"),
+                telegram=socials.get("telegram"),
             )
         )
     return out

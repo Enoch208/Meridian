@@ -7,7 +7,9 @@ import {
   CheckmarkCircle02Icon,
   FlashIcon,
   Loading03Icon,
+  NewTwitterIcon,
   ShieldBlockchainIcon,
+  TelegramIcon,
 } from "hugeicons-react";
 
 import { Button } from "@/components/ui/button";
@@ -195,7 +197,16 @@ function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck
       className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0A0C14] p-6"
     >
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex items-start gap-3">
+          {pick.token.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pick.token.image_url}
+              alt={pick.token.symbol}
+              className="size-10 shrink-0 rounded-full border border-white/10 object-cover"
+            />
+          )}
+          <div>
           <div className="flex items-center gap-2">
             <span className="font-heading text-xl font-semibold tracking-tight text-foreground">
               {sym}
@@ -209,16 +220,34 @@ function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck
               </span>
             )}
           </div>
-          {pick.token.pair_url && (
-            <a
-              href={pick.token.pair_url}
-              target="_blank"
-              rel="noreferrer"
-              className="font-mono text-[10px] uppercase tracking-[0.18em] text-violet-300 hover:text-violet-200"
-            >
-              View pair ↗
-            </a>
-          )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-3">
+            {pick.token.pair_url && (
+              <a
+                href={pick.token.pair_url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-[10px] uppercase tracking-[0.18em] text-violet-300 hover:text-violet-200"
+              >
+                View pair ↗
+              </a>
+            )}
+            {pick.token.twitter && (
+              <a href={pick.token.twitter} target="_blank" rel="noreferrer" aria-label="X" className="text-zinc-500 hover:text-violet-300">
+                <NewTwitterIcon className="size-3.5" strokeWidth={1.8} />
+              </a>
+            )}
+            {pick.token.telegram && (
+              <a href={pick.token.telegram} target="_blank" rel="noreferrer" aria-label="Telegram" className="text-zinc-500 hover:text-violet-300">
+                <TelegramIcon className="size-3.5" strokeWidth={1.8} />
+              </a>
+            )}
+            {pick.token.website && (
+              <a href={pick.token.website} target="_blank" rel="noreferrer" className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500 hover:text-violet-300">
+                Site ↗
+              </a>
+            )}
+          </div>
+          </div>
         </div>
         <div className="text-right">
           <div className={`font-heading text-4xl font-semibold tracking-tight ${scoreColor(pick.composite_score)}`}>
@@ -313,6 +342,8 @@ function MetricsGrid({ m }: { m: TokenMetrics }) {
   else if (m.fdv != null) tiles.push({ label: "FDV", value: fmtUsd(m.fdv) });
   if (m.volume_h24 != null) tiles.push({ label: "24h Vol", value: fmtUsd(m.volume_h24) });
   if (m.age_hours != null) tiles.push({ label: "Age", value: fmtAge(m.age_hours) });
+  if (m.holder_count != null)
+    tiles.push({ label: "Holders", value: m.holder_count.toLocaleString() });
   if (m.buys_h1 != null || m.sells_h1 != null)
     tiles.push({
       label: "Buys / Sells 1h",

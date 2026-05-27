@@ -16,6 +16,10 @@ export type TokenInfo = {
   symbol: string;
   address: string;
   pair_url?: string | null;
+  image_url?: string | null;
+  website?: string | null;
+  twitter?: string | null;
+  telegram?: string | null;
 };
 
 export type ScoreBreakdown = {
@@ -34,6 +38,7 @@ export type TokenMetrics = {
   buy_sell_ratio_h1?: number | null;
   buys_h1?: number | null;
   sells_h1?: number | null;
+  holder_count?: number | null;
   price_usd?: number | null;
   price_change_24h?: number | null;
   launchpad?: string | null;

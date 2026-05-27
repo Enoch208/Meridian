@@ -29,6 +29,11 @@ class Candidate:
     price_usd: Optional[float] = None
     price_change_24h: Optional[float] = None  # %, from Jupiter
     launchpad: Optional[str] = None  # e.g. "swarms.world", from Jupiter
+    image_url: Optional[str] = None  # token icon (Jupiter / DexScreener)
+    holder_count: Optional[int] = None  # from Jupiter
+    website: Optional[str] = None
+    twitter: Optional[str] = None
+    telegram: Optional[str] = None
     # on-chain (from RPC); strings: "renounced" | "live:<pubkey>" | UNKNOWN
     mint_authority: str = UNKNOWN
     freeze_authority: str = UNKNOWN
