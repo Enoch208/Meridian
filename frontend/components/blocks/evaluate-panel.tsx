@@ -13,11 +13,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { MERIDIAN_API_URL, type ApiPick } from "@/lib/meridian";
 
+type SecurityCheck = {
+  overall_score?: number | null;
+  is_honeypot?: boolean | null;
+  buy_tax?: number | null;
+  sell_tax?: number | null;
+  liquidity_locked_pct?: number | null;
+};
+
 type Result =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "error"; message: string }
-  | { state: "done"; pick: ApiPick };
+  | { state: "done"; pick: ApiPick; security: SecurityCheck | null };
 
 function scoreColor(score: number) {
   if (score >= 85) return "text-emerald-300";
@@ -63,7 +71,11 @@ export function EvaluatePanel() {
         });
         return;
       }
-      setResult({ state: "done", pick: data.pick as ApiPick });
+      setResult({
+        state: "done",
+        pick: data.pick as ApiPick,
+        security: (data.security ?? null) as SecurityCheck | null,
+      });
     } catch {
       setResult({
         state: "error",
@@ -134,13 +146,15 @@ export function EvaluatePanel() {
           </div>
         )}
 
-        {result.state === "done" && <ResultCard pick={result.pick} />}
+        {result.state === "done" && (
+          <ResultCard pick={result.pick} security={result.security} />
+        )}
       </div>
     </div>
   );
 }
 
-function ResultCard({ pick }: { pick: ApiPick }) {
+function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck | null }) {
   const sym = pick.token.symbol?.startsWith("$")
     ? pick.token.symbol
     : `$${pick.token.symbol}`;
@@ -204,6 +218,8 @@ function ResultCard({ pick }: { pick: ApiPick }) {
         })}
       </div>
 
+      {security && <SecuritySection s={security} />}
+
       {/* Reasons */}
       {pick.top_reasons.length > 0 && (
         <div className="mt-5 space-y-2">
@@ -241,5 +257,52 @@ function ResultCard({ pick }: { pick: ApiPick }) {
         <span className="font-mono text-[10px] text-zinc-600">Not financial advice</span>
       </div>
     </motion.div>
+  );
+}
+
+function SecuritySection({ s }: { s: SecurityCheck }) {
+  const hp = s.is_honeypot;
+  const rows = [
+    s.overall_score != null && { label: "Safety", value: `${s.overall_score}/100` },
+    (s.buy_tax != null || s.sell_tax != null) && {
+      label: "Buy / Sell tax",
+      value: `${s.buy_tax ?? "—"}% / ${s.sell_tax ?? "—"}%`,
+    },
+    s.liquidity_locked_pct != null && {
+      label: "Liquidity locked",
+      value: `${s.liquidity_locked_pct}%`,
+    },
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  return (
+    <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+          Security check
+        </span>
+        {hp != null && (
+          <span
+            className={`font-mono text-[10px] uppercase tracking-[0.18em] ${hp ? "text-red-300" : "text-emerald-300"}`}
+          >
+            {hp ? "⛔ Honeypot" : "✓ Not a honeypot"}
+          </span>
+        )}
+      </div>
+      {rows.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {rows.map((r) => (
+            <div
+              key={r.label}
+              className="rounded-lg border border-white/5 bg-[#0A0C14] px-3 py-2"
+            >
+              <div className="font-mono text-xs text-zinc-200">{r.value}</div>
+              <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                {r.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -188,6 +188,25 @@ def format_evaluate(data: dict | None) -> str:
         lines.append(f"⚠ Risk: {_esc(p['standout_risk'])}")
     if p.get("one_line_read"):
         lines.append(f"<i>{_esc(p['one_line_read'])}</i>")
+
+    sec = data.get("security")
+    if sec:
+        bits = []
+        hp = sec.get("is_honeypot")
+        if hp is True:
+            bits.append("⛔ HONEYPOT")
+        elif hp is False:
+            bits.append("✅ not a honeypot")
+        bt, st = sec.get("buy_tax"), sec.get("sell_tax")
+        if bt is not None or st is not None:
+            bt_s = bt if bt is not None else "—"
+            st_s = st if st is not None else "—"
+            bits.append(f"tax {bt_s}/{st_s}%")
+        if sec.get("overall_score") is not None:
+            bits.append(f"safety {sec['overall_score']}/100")
+        if bits:
+            lines.append(f"🛡 {' · '.join(_esc(b) for b in bits)}")
+
     lines.append("")
     lines.append(f"<i>{DISCLAIMER}</i>")
     return "\n".join(lines).strip()

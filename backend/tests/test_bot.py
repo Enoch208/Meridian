@@ -60,10 +60,14 @@ def test_format_evaluate_found():
             "standout_risk": "Young pair",
             "one_line_read": "Clean and early.",
         },
+        "security": {
+            "is_honeypot": False, "buy_tax": 1.0, "sell_tax": 2.0, "overall_score": 80,
+        },
     }
     out = format_evaluate(data)
     assert "$NOVA" in out and "78/100" in out
     assert "Young pair" in out and "Smart-money —" in out
+    assert "not a honeypot" in out and "safety 80/100" in out
 
 
 def test_format_evaluate_not_found():
