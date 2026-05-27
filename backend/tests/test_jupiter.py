@@ -15,6 +15,10 @@ def test_parse_market_extracts_fields():
             "icon": "https://img",
             "holderCount": 19,
             "launchpad": "swarms.world",
+            "dev": "DEVWALLET",
+            "totalSupply": 1000000000,
+            "organicScoreLabel": "low",
+            "audit": {"topHoldersPercentage": 31.49},
             "stats1h": {"numBuys": 9, "numSells": 1},
             "stats24h": {"priceChange": 110.2},
         }
@@ -26,6 +30,10 @@ def test_parse_market_extracts_fields():
     assert out["holder_count"] == 19
     assert out["price_change_24h"] == 110.2
     assert out["buys_1h"] == 9 and out["sells_1h"] == 1
+    assert out["top_holders_pct"] == 31.49
+    assert out["dev_wallet"] == "DEVWALLET"
+    assert out["total_supply"] == 1000000000
+    assert out["organic_score"] == "low"
 
 
 def test_parse_market_missing_or_garbage():
