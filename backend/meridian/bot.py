@@ -325,7 +325,7 @@ def main() -> None:
     )
     # httpx logs include the Telegram token because it is embedded in the URL.
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    print(f"Meridian bot polling… (API: {API_URL})")
+    print(f"Meridian bot polling... (API: {API_URL}, poll timeout: {POLL_TIMEOUT}s)")
     offset: int | None = None
     with httpx.Client(timeout=40) as client, ThreadPoolExecutor(
         max_workers=8, thread_name_prefix="telegram-command"
