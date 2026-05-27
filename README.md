@@ -20,7 +20,7 @@ investigating today — with a public, running track record of every call.
 
 `$MRDN` · *worth investigating, never financial advice*
 
-**[Live site](https://latch-eta.vercel.app) · [@usemeridianbot](https://t.me/usemeridianbot) · [X](https://x.com/MeridianSWRMS)**
+**[Live site](https://meridian-udkd.vercel.app/) · [@usemeridianbot](https://t.me/usemeridianbot) · [X](https://x.com/MeridianSWRMS)**
 
 </div>
 
