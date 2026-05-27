@@ -39,6 +39,10 @@ export type TokenMetrics = {
   buys_h1?: number | null;
   sells_h1?: number | null;
   holder_count?: number | null;
+  top_holders_pct?: number | null;
+  dev_holding_pct?: number | null;
+  organic_score?: string | null;
+  dev_wallet?: string | null;
   price_usd?: number | null;
   price_change_24h?: number | null;
   launchpad?: string | null;

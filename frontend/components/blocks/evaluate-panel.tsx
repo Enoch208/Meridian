@@ -68,6 +68,18 @@ function authority(v?: string | null) {
   return <span className="text-zinc-500">Unknown</span>;
 }
 
+// Lower is safer for concentration metrics: green under `mid`, amber, then red.
+function pctTone(v: number, hi: number, mid: number): string {
+  return v >= hi ? "text-red-300" : v >= mid ? "text-amber-300" : "text-emerald-300";
+}
+
+function organicTone(s: string): string {
+  const x = s.toLowerCase();
+  if (x === "high") return "text-emerald-300";
+  if (x === "medium") return "text-sky-300";
+  return "text-amber-300";
+}
+
 const SCOUT_LABELS: [keyof ApiPick["scores"], string][] = [
   ["onchain", "On-chain"],
   ["liquidity", "Liquidity"],
@@ -344,6 +356,21 @@ function MetricsGrid({ m }: { m: TokenMetrics }) {
   if (m.age_hours != null) tiles.push({ label: "Age", value: fmtAge(m.age_hours) });
   if (m.holder_count != null)
     tiles.push({ label: "Holders", value: m.holder_count.toLocaleString() });
+  if (m.top_holders_pct != null)
+    tiles.push({
+      label: "Top holders",
+      value: <span className={pctTone(m.top_holders_pct, 50, 30)}>{m.top_holders_pct.toFixed(1)}%</span>,
+    });
+  if (m.dev_holding_pct != null)
+    tiles.push({
+      label: "Dev holds",
+      value: <span className={pctTone(m.dev_holding_pct, 10, 5)}>{m.dev_holding_pct.toFixed(1)}%</span>,
+    });
+  if (m.organic_score)
+    tiles.push({
+      label: "Organic",
+      value: <span className={`uppercase ${organicTone(m.organic_score)}`}>{m.organic_score}</span>,
+    });
   if (m.buys_h1 != null || m.sells_h1 != null)
     tiles.push({
       label: "Buys / Sells 1h",
