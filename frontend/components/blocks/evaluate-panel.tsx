@@ -11,7 +11,7 @@ import {
 } from "hugeicons-react";
 
 import { Button } from "@/components/ui/button";
-import { MERIDIAN_API_URL, type ApiPick } from "@/lib/meridian";
+import { MERIDIAN_API_URL, type ApiPick, type TokenMetrics } from "@/lib/meridian";
 
 type SecurityCheck = {
   overall_score?: number | null;
