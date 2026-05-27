@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 import os
 import time
+from collections.abc import Callable
 
 import httpx
 
@@ -123,12 +124,31 @@ def _get(path: str) -> dict | None:
         return None
 
 
-def _send(chat_id: int, text: str) -> None:
+def _send(chat_id: int, text: str) -> int | None:
+    """Send a message; return its message_id (so it can be edited later)."""
     try:
-        httpx.post(
+        resp = httpx.post(
             f"{TG}/sendMessage",
             json={
                 "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
+            timeout=30,
+        )
+        return resp.json().get("result", {}).get("message_id")
+    except Exception:
+        return None
+
+
+def _edit(chat_id: int, message_id: int, text: str) -> None:
+    try:
+        httpx.post(
+            f"{TG}/editMessageText",
+            json={
+                "chat_id": chat_id,
+                "message_id": message_id,
                 "text": text,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": True,
@@ -139,27 +159,33 @@ def _send(chat_id: int, text: str) -> None:
         pass
 
 
+def _reply(chat_id: int, ack: str, path: str, formatter: Callable[[dict], str]) -> None:
+    """Send an instant ack, fetch from the API, then edit the ack into the
+    result. The ack keeps the bot feeling responsive while the backend (which
+    may be cold-starting) responds.
+    """
+    mid = _send(chat_id, ack)
+    data = _get(path)
+    text = (
+        formatter(data)
+        if data is not None
+        else "Couldn't reach the swarm right now — it may be waking up. Try again in a moment."
+    )
+    if mid is not None:
+        _edit(chat_id, mid, text)
+    else:
+        _send(chat_id, text)
+
+
 def handle(text: str, chat_id: int) -> None:
     """Dispatch a single command to a reply."""
     cmd = text.strip().split()[0].lower().split("@")[0] if text.strip() else ""
     if cmd in ("/start", "/help"):
         _send(chat_id, START_TEXT)
     elif cmd == "/picks":
-        data = _get("/api/daily-shortlist")
-        _send(
-            chat_id,
-            format_picks(data)
-            if data is not None
-            else "Couldn't reach the swarm right now — try again shortly.",
-        )
+        _reply(chat_id, "🛰 Scanning today's launches…", "/api/daily-shortlist", format_picks)
     elif cmd == "/track":
-        data = _get("/api/track-record")
-        _send(
-            chat_id,
-            format_track(data)
-            if data is not None
-            else "Couldn't reach the track record right now — try again shortly.",
-        )
+        _reply(chat_id, "📊 Pulling the track record…", "/api/track-record", format_track)
     else:
         _send(chat_id, "Unknown command. Try /picks, /track, or /help.")
 
