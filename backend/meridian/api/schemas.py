@@ -100,6 +100,24 @@ class TrackRecordResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# /api/evaluate  (on-demand single-token scoring)
+# ---------------------------------------------------------------------------
+
+
+class EvaluateRequest(BaseModel):
+    token: str
+
+
+class EvaluateResponse(BaseModel):
+    found: bool
+    pick: Optional[PickResponse] = None
+    disclaimer: str = (
+        "Not financial advice. 'Worth investigating', never 'buy'."
+    )
+    error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # /api/run
 # ---------------------------------------------------------------------------
 

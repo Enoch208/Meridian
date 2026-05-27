@@ -42,31 +42,40 @@ def _demo_candidates() -> list[Candidate]:
     ]
 
 
+def pick_to_response(p: Pick) -> PickResponse:
+    """Map a scored Pick to the §7 PickResponse contract (shared by the daily
+    shortlist and the on-demand /api/evaluate endpoint)."""
+    return PickResponse(
+        rank=p.rank,
+        token=TokenInfo(
+            name=p.candidate.name,
+            symbol=p.candidate.symbol,
+            address=p.candidate.address,
+            pair_url=p.candidate.pair_url,
+        ),
+        composite_score=p.composite_score,
+        scores=p.scores,
+        top_reasons=p.top_reasons,
+        standout_risk=p.standout_risk,
+        one_line_read=p.one_line_read,
+        metrics=TokenMetrics(
+            liquidity_usd=p.candidate.liquidity_usd,
+            fdv=p.candidate.fdv,
+            age_hours=p.candidate.age_hours,
+            volume_h24=p.candidate.volume_h24,
+            buy_sell_ratio_h1=p.candidate.buy_sell_ratio_h1(),
+            mint_authority=p.candidate.mint_authority,
+            freeze_authority=p.candidate.freeze_authority,
+        ),
+        unknowns=p.unknowns,
+    )
+
+
 def build_shortlist_dict(picks: list[Pick], now: datetime) -> dict:
     resp = DailyShortlistResponse(
         generated_at=now.isoformat(),
         as_of_date=now.date().isoformat(),
-        picks=[
-            PickResponse(
-                rank=p.rank,
-                token=TokenInfo(name=p.candidate.name, symbol=p.candidate.symbol,
-                                address=p.candidate.address, pair_url=p.candidate.pair_url),
-                composite_score=p.composite_score,
-                scores=p.scores,
-                top_reasons=p.top_reasons,
-                standout_risk=p.standout_risk,
-                one_line_read=p.one_line_read,
-                metrics=TokenMetrics(
-                    liquidity_usd=p.candidate.liquidity_usd, fdv=p.candidate.fdv,
-                    age_hours=p.candidate.age_hours, volume_h24=p.candidate.volume_h24,
-                    buy_sell_ratio_h1=p.candidate.buy_sell_ratio_h1(),
-                    mint_authority=p.candidate.mint_authority,
-                    freeze_authority=p.candidate.freeze_authority,
-                ),
-                unknowns=p.unknowns,
-            )
-            for p in picks
-        ],
+        picks=[pick_to_response(p) for p in picks],
     )
     return resp.model_dump()
 

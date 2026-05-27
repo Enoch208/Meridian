@@ -163,6 +163,42 @@ def test_run_endpoint_no_secret_configured(tmp_path, monkeypatch):
     assert resp.status_code == 403
 
 
+def test_evaluate_scores_a_token(tmp_path, monkeypatch):
+    """POST /api/evaluate fetches + scores a single token (network mocked)."""
+    from meridian.datafeed import dexscreener, enrich
+    from meridian.datafeed.models import Candidate
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    cand = Candidate(
+        address="X", name="Test", symbol="TST", pair_url="u",
+        liquidity_usd=50000, fdv=200000, market_cap=190000, age_hours=10,
+        volume_h24=80000, volume_h6=30000, volume_h1=9000, buys_h1=80, sells_h1=40,
+        price_usd=0.001, mint_authority="renounced", freeze_authority="renounced",
+    )
+    monkeypatch.setattr(dexscreener, "fetch_token", lambda addr, client=None: [cand])
+    monkeypatch.setattr(enrich, "enrich_authorities", lambda cands, rpc: cands)
+
+    client = TestClient(create_app())
+    resp = client.post("/api/evaluate", json={"token": "X"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["found"] is True
+    assert body["pick"]["token"]["symbol"] == "TST"
+    assert isinstance(body["pick"]["composite_score"], int)
+    assert body["pick"]["standout_risk"]
+
+
+def test_evaluate_not_found(tmp_path, monkeypatch):
+    """Unknown token → found=False, 200 (graceful)."""
+    from meridian.datafeed import dexscreener
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(dexscreener, "fetch_token", lambda addr, client=None: [])
+    client = TestClient(create_app())
+    resp = client.post("/api/evaluate", json={"token": "nope"})
+    assert resp.status_code == 200 and resp.json()["found"] is False
+
+
 def test_cors_headers_present(tmp_path, monkeypatch):
     """CORS allow-all is configured — preflight should be accepted."""
     monkeypatch.setenv("DATA_DIR", str(tmp_path))

@@ -37,6 +37,15 @@ def parse_token_pairs(raw: dict) -> list[Candidate]:
     return out
 
 
+def fetch_token(address: str, client: httpx.Client | None = None) -> list[Candidate]:
+    """Fetch a single token by mint/pair address → its best Solana pair.
+
+    Returns ``[]`` if the token isn't on a Solana pair DexScreener knows about.
+    """
+    c = client or httpx.Client(timeout=20)
+    return parse_token_pairs(c.get(f"{BASE}/latest/dex/tokens/{address}").json())
+
+
 def fetch_recent_candidates(
     limit: int = 30, client: httpx.Client | None = None
 ) -> list[Candidate]:

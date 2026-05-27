@@ -21,6 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from meridian.api.schemas import (
     DailyShortlistResponse,
+    EvaluateRequest,
+    EvaluateResponse,
     HealthResponse,
     RunResponse,
     TrackRecordResponse,
@@ -174,5 +176,56 @@ def create_app() -> FastAPI:
 
         background_tasks.add_task(_run_live_pipeline)
         return RunResponse(status="queued")
+
+    # ------------------------------------------------------------------
+    # POST /api/evaluate  (on-demand single-token scoring)
+    # ------------------------------------------------------------------
+
+    @app.post("/api/evaluate", response_model=EvaluateResponse)
+    def evaluate(req: EvaluateRequest, live: bool = False) -> EvaluateResponse:
+        """Score a single token on demand against the same rubric.
+
+        Uses the deterministic MockScoutSwarm by default (instant, no credit);
+        pass ``?live=1`` to use the real Swarms swarm. Risky tokens are scored
+        and returned (with the risk flagged) rather than filtered out.
+        """
+        from meridian.config import get_settings
+        from meridian.datafeed.dexscreener import fetch_token
+        from meridian.datafeed.enrich import enrich_authorities
+        from meridian.run import pick_to_response
+
+        token = (req.token or "").strip()
+        if not token:
+            raise HTTPException(status_code=400, detail="token required")
+
+        try:
+            candidates = fetch_token(token)
+        except Exception:
+            candidates = []
+        if not candidates:
+            return EvaluateResponse(
+                found=False, error="No Solana pair found for that token."
+            )
+
+        settings = get_settings()
+        candidates = enrich_authorities(candidates, settings.solana_rpc_url)
+
+        if live:
+            from meridian.scouts.swarm import SwarmsScoutSwarm
+
+            swarm = SwarmsScoutSwarm()
+        else:
+            from meridian.scouts.swarm import MockScoutSwarm
+
+            swarm = MockScoutSwarm()
+
+        try:
+            picks = swarm.rank(candidates)
+        except Exception:
+            picks = []
+        if not picks:
+            return EvaluateResponse(found=False, error="Couldn't score that token.")
+
+        return EvaluateResponse(found=True, pick=pick_to_response(picks[0]))
 
     return app
