@@ -38,6 +38,34 @@ function fmtScore(v: number | null | undefined) {
   return v == null ? "—" : String(v);
 }
 
+function fmtUsd(n?: number | null): string {
+  if (n == null) return "—";
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}k`;
+  return `$${n.toFixed(0)}`;
+}
+
+function fmtPrice(n?: number | null): string {
+  if (n == null) return "—";
+  if (n >= 1) return `$${n.toFixed(2)}`;
+  if (n >= 0.0001) return `$${n.toFixed(6)}`;
+  return `$${n.toExponential(2)}`;
+}
+
+function fmtAge(h?: number | null): string {
+  if (h == null) return "—";
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h < 24) return `${Math.round(h)}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function authority(v?: string | null) {
+  if (v === "renounced") return <span className="text-emerald-300">Renounced</span>;
+  if (v && v.startsWith("live")) return <span className="text-amber-300">Live ⚠</span>;
+  return <span className="text-zinc-500">Unknown</span>;
+}
+
 const SCOUT_LABELS: [keyof ApiPick["scores"], string][] = [
   ["onchain", "On-chain"],
   ["liquidity", "Liquidity"],
