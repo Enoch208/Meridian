@@ -188,6 +188,32 @@ def test_evaluate_scores_a_token(tmp_path, monkeypatch):
     assert body["pick"]["standout_risk"]
 
 
+def test_evaluate_fills_liquidity_from_jupiter(tmp_path, monkeypatch):
+    """When DexScreener has no liquidity, Jupiter fills it (no longer Unknown)."""
+    from meridian.datafeed import dexscreener, enrich, jupiter
+    from meridian.datafeed.models import Candidate
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    cand = Candidate(
+        address="X", name="T", symbol="TST", pair_url="u",
+        liquidity_usd=None, fdv=3000, age_hours=10,
+        volume_h24=900, buys_h1=9, sells_h1=1, price_usd=None,
+        mint_authority="renounced", freeze_authority="renounced",
+    )
+    monkeypatch.setattr(dexscreener, "fetch_token", lambda a, client=None: [cand])
+    monkeypatch.setattr(enrich, "enrich_authorities", lambda c, rpc: c)
+    monkeypatch.setattr(
+        jupiter, "fetch_market",
+        lambda mint: {"liquidity_usd": 653.0, "usd_price": 0.000003, "price_change_24h": 110.0},
+    )
+
+    client = TestClient(create_app())
+    body = client.post("/api/evaluate", json={"token": "X"}).json()
+    assert body["found"] is True
+    assert body["pick"]["metrics"]["liquidity_usd"] == 653.0
+    assert body["pick"]["scores"]["liquidity"] is not None  # filled, not Unknown
+
+
 def test_evaluate_includes_security_when_available(tmp_path, monkeypatch):
     """When the security check returns data, it's attached to the response."""
     from meridian.datafeed import dexscreener, enrich, tokencheck

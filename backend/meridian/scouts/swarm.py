@@ -116,33 +116,111 @@ def parse_lead_json(text: str, candidates: list[Candidate]) -> list[Pick]:
 
 
 class MockScoutSwarm:
-    """Deterministic ranking by liquidity — for tests, demos, and offline runs."""
+    """Deterministic, honesty-aware ranking — for tests, demos, and the
+    on-demand /api/evaluate path. Missing signals score Unknown (None) and are
+    excluded from the composite (never invented as 0). Ranks by liquidity."""
 
     def rank(self, candidates: list[Candidate]) -> list[Pick]:
         ranked = sorted(candidates, key=lambda c: (c.liquidity_usd or 0), reverse=True)[:3]
-        picks: list[Pick] = []
-        for i, c in enumerate(ranked, start=1):
-            liq = _scale(c.liquidity_usd, 50000)
-            mom = _scale((c.buy_sell_ratio_h1() or 0) * 10000, 30000)
-            onchain = 80 if c.mint_authority == "renounced" and c.freeze_authority == "renounced" else 50
-            composite = int(round((liq + mom + onchain) / 3))
-            picks.append(Pick(
-                rank=i, candidate=c, composite_score=composite,
-                scores={"onchain": onchain, "liquidity": liq, "momentum": mom, "smart_money": None},
-                top_reasons=[f"Liquidity ${(c.liquidity_usd or 0):,.0f}",
-                             f"Buy/sell {c.buy_sell_ratio_h1() or 0:.1f}x (1h)"],
-                standout_risk=("Pair is young — unproven" if (c.age_hours or 0) < 24
-                               else "Verify liquidity is locked"),
-                one_line_read="Liquid and buyer-led — worth investigating.",
-                unknowns=["smart_money"],
-            ))
-        return picks
+        return [_score_candidate(c, i) for i, c in enumerate(ranked, start=1)]
 
 
 def _scale(value: Optional[float], cap: float) -> int:
     if not value:
         return 0
     return max(0, min(100, int(round(value / cap * 100))))
+
+
+def _score_candidate(c: Candidate, rank: int) -> Pick:
+    """Score one candidate honestly: verifiable signals get a 0–100 score,
+    unverifiable ones are Unknown (None) and excluded from the composite."""
+    reasons: list[str] = []
+    unknowns: list[str] = []
+
+    # On-chain — authorities; Unknown when neither is verifiable (the model's
+    # default is the string "Unknown", not None).
+    mint_known = c.mint_authority not in (None, UNKNOWN)
+    freeze_known = c.freeze_authority not in (None, UNKNOWN)
+    mint_ok = c.mint_authority == "renounced"
+    freeze_ok = c.freeze_authority == "renounced"
+    if not mint_known and not freeze_known:
+        onchain: Optional[int] = None
+        unknowns.append("onchain")
+    elif mint_ok and freeze_ok:
+        onchain = 85
+        reasons.append("Mint & freeze authority renounced")
+    elif mint_ok or freeze_ok:
+        onchain = 55
+        reasons.append("One authority still live — partial risk")
+    else:
+        onchain = 20
+        reasons.append("Mint/freeze authority live — rug risk")
+
+    # Liquidity — null is Unknown, never reported as $0.
+    if c.liquidity_usd is None:
+        liquidity: Optional[int] = None
+        unknowns.append("liquidity")
+    else:
+        liquidity = _scale(c.liquidity_usd, 50000)
+        if c.liquidity_usd >= 25000:
+            reasons.append(f"Healthy liquidity ${c.liquidity_usd:,.0f}")
+        else:
+            reasons.append(f"Thin liquidity ${c.liquidity_usd:,.0f}")
+
+    # Momentum — buy/sell pressure + volume.
+    ratio = c.buy_sell_ratio_h1()
+    if ratio is None and not c.volume_h24:
+        momentum: Optional[int] = None
+        unknowns.append("momentum")
+    else:
+        momentum = _scale((ratio or 0) * 10000, 30000)
+        if ratio and ratio >= 1.3:
+            reasons.append(f"Buyer-led {ratio:.1f}x buy/sell (1h)")
+        elif c.volume_h24:
+            reasons.append(f"${c.volume_h24:,.0f} 24h volume")
+
+    unknowns.append("smart_money")  # dedicated scout ships in v1.5
+
+    available = [s for s in (onchain, liquidity, momentum) if s is not None]
+    composite = int(round(sum(available) / len(available))) if available else 0
+    # Absence of evidence is a mild negative: unverified liquidity caps the
+    # score so it can never read as "clean" without it.
+    if liquidity is None:
+        composite = min(composite, 70)
+
+    if liquidity is None:
+        risk = "Liquidity unverified — could be thin"
+    elif c.liquidity_usd is not None and c.liquidity_usd < 10000:
+        risk = "Thin liquidity — exit-rug risk"
+    elif onchain is not None and onchain < 50:
+        risk = "Authorities not renounced — rug risk"
+    elif (c.age_hours or 0) < 24:
+        risk = "Pair is young — unproven"
+    else:
+        risk = "Verify liquidity is locked before sizing up"
+
+    if composite >= 75:
+        read = "Clean signals across the board — worth investigating."
+    elif composite >= 55:
+        read = "Mixed signals with upside — worth investigating with care."
+    else:
+        read = "Weak or unverified signals — investigate cautiously."
+
+    return Pick(
+        rank=rank,
+        candidate=c,
+        composite_score=composite,
+        scores={
+            "onchain": onchain,
+            "liquidity": liquidity,
+            "momentum": momentum,
+            "smart_money": None,
+        },
+        top_reasons=reasons[:2] or ["Limited data available"],
+        standout_risk=risk,
+        one_line_read=read,
+        unknowns=unknowns,
+    )
 
 
 SWARMS_API_BASE = "https://api.swarms.world"
