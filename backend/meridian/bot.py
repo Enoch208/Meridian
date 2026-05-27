@@ -30,6 +30,7 @@ from meridian import config as _config  # noqa: F401 — import triggers load_do
 API_URL = os.getenv("MERIDIAN_API_URL", "http://localhost:8000").rstrip("/")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TG = f"https://api.telegram.org/bot{TOKEN}"
+POLL_TIMEOUT = max(1, int(os.getenv("TELEGRAM_POLL_TIMEOUT", "2")))
 LOG = logging.getLogger("meridian.bot")
 _HTTP_CLIENT: httpx.Client | None = None
 
@@ -322,6 +323,8 @@ def main() -> None:
         level=os.getenv("LOG_LEVEL", "INFO").upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    # httpx logs include the Telegram token because it is embedded in the URL.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     print(f"Meridian bot polling… (API: {API_URL})")
     offset: int | None = None
     with httpx.Client(timeout=40) as client, ThreadPoolExecutor(
@@ -330,7 +333,7 @@ def main() -> None:
         _HTTP_CLIENT = client
         while True:
             try:
-                params: dict[str, object] = {"timeout": 30}
+                params: dict[str, object] = {"timeout": POLL_TIMEOUT}
                 if offset is not None:
                     params["offset"] = offset
                 resp = client.get(f"{TG}/getUpdates", params=params)
