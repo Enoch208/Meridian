@@ -5,6 +5,7 @@ import { ProtocolEcosystem } from "@/components/blocks/protocol-ecosystem";
 import { AutonomousLifecycle } from "@/components/blocks/autonomous-lifecycle";
 import { UseCasesGrid } from "@/components/blocks/use-cases-grid";
 import { ProtocolPillars } from "@/components/blocks/protocol-pillars";
+import { TokenBand } from "@/components/blocks/token-band";
 import { CTABand } from "@/components/blocks/cta-band";
 
 export default function HomePage() {
@@ -16,6 +17,7 @@ export default function HomePage() {
       <AutonomousLifecycle />
       <UseCasesGrid />
       <ProtocolPillars />
+      <TokenBand />
       <CTABand />
       <SiteFooter />
     </main>

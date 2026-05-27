@@ -220,6 +220,14 @@ product *is* the marketing: each day's call is content, and the running track
 record compounds into receipts. *(Hold-to-unlock gating ships with the
 roadmap below.)*
 
+**Live on Solana** — `$MRDN` is minted and trading:
+
+| | |
+|---|---|
+| Mint (CA) | [`G7L2LRZyoE6FZgFo51Betj88UPMdnNi1iYmBrpfpswrm`](https://solscan.io/token/G7L2LRZyoE6FZgFo51Betj88UPMdnNi1iYmBrpfpswrm) |
+| Pool | [`Ha8Gs6P4BZAu3iu6ZAZj2PoA9xkA1Lf5mum5FjsdtnHh`](https://solscan.io/account/Ha8Gs6P4BZAu3iu6ZAZj2PoA9xkA1Lf5mum5FjsdtnHh) |
+| Supply | 1,000,000,000 |
+
 ## Repository
 
 | Path | What it is |

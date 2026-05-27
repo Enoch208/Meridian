@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 
 import { SmoothScroll } from "@/components/providers/smooth-scroll";
+import { Web3Provider } from "@/components/providers/web3";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -158,7 +159,9 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <SmoothScroll>{children}</SmoothScroll>
+        <Web3Provider>
+          <SmoothScroll>{children}</SmoothScroll>
+        </Web3Provider>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

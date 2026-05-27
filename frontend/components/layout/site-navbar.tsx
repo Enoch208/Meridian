@@ -14,15 +14,15 @@ import { Menu03Icon, ArrowUpRight01Icon, ArrowLeft01Icon } from "hugeicons-react
 import { MeridianWordmark } from "@/components/ui/meridian-wordmark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LINKS } from "@/lib/links";
 
-// All nav links use absolute + hash paths so they work cross-page. From /demo,
-// clicking "Track Record" navigates to / and scrolls to #protocol; from / it's
-// a same-page smooth scroll handled by the global scroll-padding-top offset.
-const NAV_LINKS = [
-  { label: "Track Record", href: "/#protocol" },
-  { label: "How It Works", href: "/#lifecycle" },
+// Internal links use absolute + hash paths so they work cross-page; the external
+// one (GitHub) opens in a new tab.
+const NAV_LINKS: { label: string; href: string; external?: boolean }[] = [
   { label: "The Swarm", href: "/#use-cases" },
-  { label: "Docs", href: "#" },
+  { label: "Track Record", href: "/#protocol" },
+  { label: "$MRDN", href: "/#token" },
+  { label: "GitHub", href: LINKS.github, external: true },
 ];
 
 const spring = { type: "spring" as const, stiffness: 260, damping: 32 };
@@ -100,6 +100,8 @@ export function SiteNavbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                target={link.external ? "_blank" : undefined}
+                rel={link.external ? "noreferrer" : undefined}
                 className="rounded-full px-3.5 py-1.5 text-[13px] font-medium tracking-tight text-zinc-300 transition-all duration-200 hover:bg-white/[0.06] hover:text-white"
               >
                 {link.label}
@@ -203,6 +205,8 @@ export function SiteNavbar() {
                 >
                   <Link
                     href={link.href}
+                    target={link.external ? "_blank" : undefined}
+                    rel={link.external ? "noreferrer" : undefined}
                     onClick={() => setOpen(false)}
                     className="block rounded-lg px-3 py-2.5 text-[15px] font-medium tracking-tight text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white"
                   >

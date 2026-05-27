@@ -1,15 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Github01Icon,
-  NewTwitterIcon,
-  TelegramIcon,
-} from "hugeicons-react";
+import { Github01Icon, NewTwitterIcon } from "hugeicons-react";
 
 import { MeridianMark } from "@/components/ui/meridian-mark";
 import { MeridianWordmark } from "@/components/ui/meridian-wordmark";
+import { LINKS } from "@/lib/links";
 
-const LINK_COLUMNS = [
+type FooterLink = { label: string; href: string; external?: boolean };
+
+const LINK_COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Product",
     links: [
@@ -20,29 +19,26 @@ const LINK_COLUMNS = [
     ],
   },
   {
+    title: "Token",
+    links: [
+      { label: "Trade on Swarms", href: LINKS.marketplace, external: true },
+      { label: "$MRDN on Solscan", href: LINKS.solscan, external: true },
+      { label: "Chart (DexScreener)", href: LINKS.dexscreener, external: true },
+    ],
+  },
+  {
     title: "Resources",
     links: [
-      { label: "Documentation", href: "#" },
-      { label: "The Thesis", href: "#" },
-      { label: "Marketplace Listing", href: "#" },
-      { label: "GitHub", href: "#" },
+      { label: "Documentation", href: LINKS.github, external: true },
+      { label: "The Thesis", href: LINKS.github, external: true },
+      { label: "GitHub", href: LINKS.github, external: true },
     ],
   },
   {
     title: "Community",
     links: [
-      { label: "X / Twitter", href: "#" },
-      { label: "Telegram", href: "#" },
-      { label: "Swarms Discord", href: "#" },
-      { label: "@swarms_corp", href: "#" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Terms", href: "#" },
-      { label: "Privacy", href: "#" },
-      { label: "Disclaimers", href: "#" },
+      { label: "Swarms on X", href: LINKS.swarmsX, external: true },
+      { label: "Swarms Discord", href: LINKS.swarmsDiscord, external: true },
     ],
   },
 ];
@@ -95,6 +91,8 @@ export function SiteFooter() {
                     <li key={link.label}>
                       <Link
                         href={link.href}
+                        target={link.external ? "_blank" : undefined}
+                        rel={link.external ? "noreferrer" : undefined}
                         className="text-sm text-zinc-300 transition-colors hover:text-violet-300"
                       >
                         {link.label}
@@ -114,9 +112,8 @@ export function SiteFooter() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               {[
-                { icon: NewTwitterIcon, href: "#", label: "X" },
-                { icon: TelegramIcon, href: "#", label: "Telegram" },
-                { icon: Github01Icon, href: "#", label: "GitHub" },
+                { icon: NewTwitterIcon, href: LINKS.swarmsX, label: "X" },
+                { icon: Github01Icon, href: LINKS.github, label: "GitHub" },
               ].map(({ icon: Icon, href, label }) => (
                 <a
                   key={label}
@@ -131,9 +128,14 @@ export function SiteFooter() {
               ))}
             </div>
             <div className="hidden h-4 w-px bg-white/10 md:block" />
-            <code className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] text-violet-300">
-              $MRDN · mint TBA
-            </code>
+            <a
+              href={LINKS.solscan}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] text-violet-300 transition-colors hover:border-violet-500/30 hover:text-violet-200"
+            >
+              $MRDN · G7L2…swrm
+            </a>
           </div>
         </div>
       </div>

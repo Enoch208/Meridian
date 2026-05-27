@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
 import {
   AnalyticsUpIcon,
   ArrowUpRight01Icon,
@@ -16,6 +18,7 @@ import { BorderBeam } from "@/components/ui/border-beam";
 import { Button } from "@/components/ui/button";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import type { ApiPick, DailyShortlist, TrackRecord } from "@/lib/meridian";
+import { LINKS } from "@/lib/links";
 
 const spring = { type: "spring" as const, stiffness: 400, damping: 30 };
 
@@ -369,6 +372,37 @@ export function MeridianShortlist({
   const freeCutoff = shortlist?.free_tier_cutoff ?? 1;
   const asOf = shortlist?.as_of_date ?? "—";
 
+  // Wallet-connect hold-to-unlock: connect via Reown, check $MRDN balance, and
+  // reveal the locked picks for holders.
+  const { open } = useAppKit();
+  const { address, isConnected } = useAppKitAccount();
+  const [holder, setHolder] = useState<{ holds: boolean; balance: number } | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for a fetch-on-change
+    setChecking(true);
+    fetch(`/api/holder?wallet=${address}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setHolder({ holds: !!d.holds, balance: d.balance ?? 0 });
+      })
+      .catch(() => {
+        if (!cancelled) setHolder({ holds: false, balance: 0 });
+      })
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  // Guard on `address` so locked picks re-lock immediately on disconnect.
+  const unlocked = !!address && holder?.holds === true;
+
   return (
     <div className="relative z-10 mx-auto max-w-5xl px-5 sm:px-6 md:px-10">
       {/* Header */}
@@ -461,7 +495,7 @@ export function MeridianShortlist({
               <AwaitingScan />
             ) : (
               picks.map((pick, i) =>
-                i < freeCutoff ? (
+                i < freeCutoff || unlocked ? (
                   <PickCard key={pick.token.address || pick.rank} pick={pick} index={i} />
                 ) : (
                   <LockedPick key={pick.token.address || pick.rank} pick={pick} index={i} />
@@ -469,17 +503,59 @@ export function MeridianShortlist({
               )
             )}
 
-            {/* Holder unlock note */}
+            {/* Holder gate — connect wallet → check $MRDN balance → unlock */}
             {picks.length > freeCutoff && (
-              <div className="flex flex-col gap-3 rounded-2xl border border-violet-500/25 bg-violet-500/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <LockKeyIcon className="mt-0.5 size-4 shrink-0 text-violet-300" strokeWidth={2} />
-                  <p className="text-sm leading-relaxed text-zinc-300">
-                    The free tier shows the top {freeCutoff} pick{freeCutoff === 1 ? "" : "s"}.{" "}
-                    <span className="text-violet-300">Hold $MRDN</span> to unlock the full ranked
-                    shortlist in real time, plus the live track record.
-                  </p>
-                </div>
+              <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.05] p-5">
+                {unlocked ? (
+                  <div className="flex items-center gap-3">
+                    <CheckmarkCircle02Icon className="size-4 shrink-0 text-emerald-300" strokeWidth={2} />
+                    <p className="text-sm leading-relaxed text-zinc-300">
+                      <span className="text-emerald-300">Holder verified</span> — full shortlist
+                      unlocked{holder ? ` (${holder.balance.toLocaleString()} $MRDN)` : ""}.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <LockKeyIcon className="mt-0.5 size-4 shrink-0 text-violet-300" strokeWidth={2} />
+                      <p className="text-sm leading-relaxed text-zinc-300">
+                        {isConnected ? (
+                          <>
+                            This wallet holds{" "}
+                            <span className="text-amber-300">0 $MRDN</span>. Hold $MRDN to unlock the
+                            full ranked shortlist.
+                          </>
+                        ) : (
+                          <>
+                            The free tier shows the top {freeCutoff} pick
+                            {freeCutoff === 1 ? "" : "s"}.{" "}
+                            <span className="text-violet-300">Hold $MRDN</span> to unlock the full
+                            shortlist + live track record.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {checking ? (
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-violet-300">
+                          Checking…
+                        </span>
+                      ) : isConnected ? (
+                        <a href={LINKS.marketplace} target="_blank" rel="noreferrer">
+                          <Button variant="violet" size="pill">
+                            Buy $MRDN
+                            <ArrowUpRight01Icon className="size-4" strokeWidth={2.2} />
+                          </Button>
+                        </a>
+                      ) : (
+                        <Button variant="violet" size="pill" onClick={() => open()}>
+                          <Wallet01Icon className="size-4" strokeWidth={2.2} />
+                          Connect wallet
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
