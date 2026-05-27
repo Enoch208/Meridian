@@ -203,6 +203,11 @@ function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck
             <span className="font-mono text-[11px] text-muted-foreground">
               {pick.token.name}
             </span>
+            {pick.metrics?.launchpad && (
+              <span className="rounded-full border border-violet-500/25 bg-violet-500/[0.06] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-violet-300">
+                {pick.metrics.launchpad}
+              </span>
+            )}
           </div>
           {pick.token.pair_url && (
             <a
@@ -246,6 +251,8 @@ function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck
         })}
       </div>
 
+      {pick.metrics && <MetricsGrid m={pick.metrics} />}
+
       {security && <SecuritySection s={security} />}
 
       {/* Reasons */}
@@ -285,6 +292,49 @@ function ResultCard({ pick, security }: { pick: ApiPick; security: SecurityCheck
         <span className="font-mono text-[10px] text-zinc-600">Not financial advice</span>
       </div>
     </motion.div>
+  );
+}
+
+function MetricsGrid({ m }: { m: TokenMetrics }) {
+  const pct = m.price_change_24h;
+  const tiles: { label: string; value: React.ReactNode }[] = [];
+  if (m.price_usd != null) tiles.push({ label: "Price", value: fmtPrice(m.price_usd) });
+  if (pct != null)
+    tiles.push({
+      label: "24h",
+      value: (
+        <span className={pct >= 0 ? "text-emerald-300" : "text-red-300"}>
+          {(pct >= 0 ? "+" : "−") + Math.abs(pct).toFixed(Math.abs(pct) >= 100 ? 0 : 1)}%
+        </span>
+      ),
+    });
+  if (m.liquidity_usd != null) tiles.push({ label: "Liquidity", value: fmtUsd(m.liquidity_usd) });
+  if (m.market_cap != null) tiles.push({ label: "Market cap", value: fmtUsd(m.market_cap) });
+  else if (m.fdv != null) tiles.push({ label: "FDV", value: fmtUsd(m.fdv) });
+  if (m.volume_h24 != null) tiles.push({ label: "24h Vol", value: fmtUsd(m.volume_h24) });
+  if (m.age_hours != null) tiles.push({ label: "Age", value: fmtAge(m.age_hours) });
+  if (m.buys_h1 != null || m.sells_h1 != null)
+    tiles.push({
+      label: "Buys / Sells 1h",
+      value: `${m.buys_h1 ?? "—"} / ${m.sells_h1 ?? "—"}`,
+    });
+  tiles.push({ label: "Mint auth", value: authority(m.mint_authority) });
+  tiles.push({ label: "Freeze auth", value: authority(m.freeze_authority) });
+
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {tiles.map((t) => (
+        <div
+          key={t.label}
+          className="rounded-lg border border-white/5 bg-[#0A0C14] px-3 py-2"
+        >
+          <div className="font-mono text-xs text-zinc-200">{t.value}</div>
+          <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+            {t.label}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
