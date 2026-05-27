@@ -235,13 +235,38 @@ def create_app() -> FastAPI:
                 else mkt.get("market_cap"),
                 price_change_24h=mkt.get("price_change_24h"),
                 launchpad=mkt.get("launchpad"),
-                image_url=cand.image_url or mkt.get("icon"),
+                image_url=cand.image_url
+                if cand.image_url is not None
+                else mkt.get("icon"),
                 holder_count=mkt.get("holder_count"),
-                # DexScreener's 1h tx counts go stale on new tokens — prefer
-                # Jupiter's when DexScreener has none/zero.
-                buys_h1=cand.buys_h1 if cand.buys_h1 else mkt.get("buys_1h"),
-                sells_h1=cand.sells_h1 if cand.sells_h1 else mkt.get("sells_1h"),
+                top_holders_pct=mkt.get("top_holders_pct"),
+                organic_score=mkt.get("organic_score"),
+                dev_wallet=mkt.get("dev_wallet"),
+                # Prefer Jupiter's tx counts (it reads the bonding curve
+                # directly; DexScreener's 1h often lags on new tokens), but use
+                # `is not None` so a real 0 is preserved — never conflated with
+                # missing data.
+                buys_h1=mkt.get("buys_1h")
+                if mkt.get("buys_1h") is not None
+                else cand.buys_h1,
+                sells_h1=mkt.get("sells_1h")
+                if mkt.get("sells_1h") is not None
+                else cand.sells_h1,
             )
+
+        # Dev wallet holding %: dev balance / total supply (one RPC call).
+        cand = candidates[0]
+        supply = mkt.get("total_supply") if mkt else None
+        if cand.dev_wallet and supply and supply > 0:
+            from meridian.datafeed.solana_rpc import fetch_owner_token_balance
+
+            bal = fetch_owner_token_balance(
+                cand.dev_wallet, cand.address, settings.solana_rpc_url
+            )
+            if bal is not None:
+                candidates[0] = dataclasses.replace(
+                    cand, dev_holding_pct=round(bal / supply * 100, 2)
+                )
 
         if live:
             from meridian.scouts.swarm import SwarmsScoutSwarm

@@ -44,6 +44,10 @@ class TokenMetrics(BaseModel):
     buys_h1: Optional[int] = None
     sells_h1: Optional[int] = None
     holder_count: Optional[int] = None
+    top_holders_pct: Optional[float] = None
+    dev_holding_pct: Optional[float] = None
+    organic_score: Optional[str] = None
+    dev_wallet: Optional[str] = None
     price_usd: Optional[float] = None
     price_change_24h: Optional[float] = None
     launchpad: Optional[str] = None

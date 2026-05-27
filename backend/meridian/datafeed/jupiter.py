@@ -56,6 +56,7 @@ def parse_market(data: object, mint: str) -> dict | None:
 
     s1 = entry.get("stats1h") or {}
     s24 = entry.get("stats24h") or {}
+    audit = entry.get("audit") or {}
     out = {
         "usd_price": _num(entry.get("usdPrice")),
         "liquidity_usd": _num(entry.get("liquidity")),
@@ -67,6 +68,10 @@ def parse_market(data: object, mint: str) -> dict | None:
         "holder_count": _int(entry.get("holderCount")),
         "buys_1h": _int(s1.get("numBuys")),
         "sells_1h": _int(s1.get("numSells")),
+        "total_supply": _num(entry.get("totalSupply")),
+        "dev_wallet": entry.get("dev"),
+        "top_holders_pct": _num(audit.get("topHoldersPercentage")),
+        "organic_score": entry.get("organicScoreLabel"),
     }
     if (
         out["usd_price"] is None

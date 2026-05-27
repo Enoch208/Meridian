@@ -31,6 +31,10 @@ class Candidate:
     launchpad: Optional[str] = None  # e.g. "swarms.world", from Jupiter
     image_url: Optional[str] = None  # token icon (Jupiter / DexScreener)
     holder_count: Optional[int] = None  # from Jupiter
+    top_holders_pct: Optional[float] = None  # % held by top holders (Jupiter audit)
+    dev_holding_pct: Optional[float] = None  # dev wallet balance / supply (RPC)
+    organic_score: Optional[str] = None  # Jupiter organic-score label
+    dev_wallet: Optional[str] = None
     website: Optional[str] = None
     twitter: Optional[str] = None
     telegram: Optional[str] = None
