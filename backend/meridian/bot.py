@@ -183,6 +183,18 @@ def format_evaluate(data: dict | None) -> str:
         f"Smart-money {_fmt_score(scores.get('smart_money'))}",
         "",
     ]
+    m = p.get("metrics") or {}
+    mbits = []
+    if m.get("liquidity_usd") is not None:
+        mbits.append(f"💧 ${m['liquidity_usd']:,.0f} liq")
+    if m.get("holder_count") is not None:
+        mbits.append(f"👥 {m['holder_count']:,} holders")
+    if m.get("price_change_24h") is not None:
+        mbits.append(f"24h {m['price_change_24h']:+.0f}%")
+    if mbits:
+        lines.append(_esc(" · ".join(mbits)))
+        lines.append("")
+
     for reason in (p.get("top_reasons") or [])[:2]:
         lines.append(f"✓ {_esc(reason)}")
     if p.get("standout_risk"):
