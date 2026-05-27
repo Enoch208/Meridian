@@ -21,6 +21,10 @@ class Settings:
     # persisted to MongoDB (survives Render restarts) instead of the local disk.
     mongodb_uri: str
     mongodb_db: str
+    # Optional server-side token security/honeypot enrichment. Kept out of code
+    # (URL + spoofed origin live only in env) so the source is never exposed.
+    token_check_api_url: str
+    token_check_origin: str
 
 
 def get_settings() -> Settings:
@@ -35,4 +39,6 @@ def get_settings() -> Settings:
         run_secret=os.getenv("MERIDIAN_RUN_SECRET", ""),
         mongodb_uri=os.getenv("MONGODB_URI", ""),
         mongodb_db=os.getenv("MONGODB_DB", "meridian"),
+        token_check_api_url=os.getenv("TOKEN_CHECK_API_URL", ""),
+        token_check_origin=os.getenv("TOKEN_CHECK_ORIGIN", ""),
     )
