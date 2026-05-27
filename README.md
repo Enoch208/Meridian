@@ -20,6 +20,8 @@ investigating today — with a public, running track record of every call.
 
 `$MRDN` · built for **Agent Capital Markets** · *worth investigating, never financial advice*
 
+**Try it → [@usemeridianbot on Telegram](https://t.me/usemeridianbot)** · `/picks` for today's call
+
 </div>
 
 ---
@@ -232,8 +234,8 @@ roadmap below.)*
 
 | Path | What it is |
 |---|---|
-| [`backend/`](backend) | Python scout swarm — datafeed, scoring, Swarms agents, track record, FastAPI ([README](backend/README.md)) |
-| [`frontend/`](frontend) | Next.js 16 marketing site + the live `/demo` shortlist dashboard |
+| [`backend/`](backend) | Python scout swarm — datafeed, scoring, Swarms agents, track record, FastAPI, and the [Telegram bot](https://t.me/usemeridianbot) ([README](backend/README.md)) |
+| [`frontend/`](frontend) | Next.js 16 marketing site + the live `/demo` shortlist dashboard (with `$MRDN` hold-to-unlock) |
 | [`DEPLOY.md`](DEPLOY.md) | Deploy the backend (Render/Docker) and frontend (Vercel) |
 
 ## Quickstart
@@ -257,6 +259,10 @@ cp .env.example .env                 # add SWARMS_API_KEY
 # Tests (mock swarm — no credit spent)
 .venv/bin/pytest
 ```
+
+> **Telegram bot** ([@usemeridianbot](https://t.me/usemeridianbot)) — a thin client over the API.
+> Set `TELEGRAM_BOT_TOKEN` (from @BotFather) + `MERIDIAN_API_URL`, then run
+> `.venv/bin/python -m meridian.bot` — replies to `/start`, `/picks`, `/track`.
 
 ### 2 · Frontend — the site + dashboard
 

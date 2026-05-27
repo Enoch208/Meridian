@@ -19,6 +19,7 @@ export const LINKS = {
   marketplace: "https://swarms.world",
   solscan: `https://solscan.io/token/${TOKEN.mint}`,
   dexscreener: `https://dexscreener.com/solana/${TOKEN.pool}`,
+  telegramBot: "https://t.me/usemeridianbot",
   swarmsX: "https://x.com/swarms_corp",
   swarmsDiscord: "https://discord.gg/VK9jp9sXwJ",
 } as const;

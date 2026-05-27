@@ -37,6 +37,7 @@ const LINK_COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Community",
     links: [
+      { label: "Telegram bot", href: LINKS.telegramBot, external: true },
       { label: "Swarms on X", href: LINKS.swarmsX, external: true },
       { label: "Swarms Discord", href: LINKS.swarmsDiscord, external: true },
     ],
