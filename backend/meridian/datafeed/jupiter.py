@@ -48,6 +48,7 @@ def parse_market(data: object, mint: str) -> dict | None:
         "usd_price": _num(entry.get("usdPrice")),
         "liquidity_usd": _num(entry.get("liquidity")),
         "price_change_24h": _num(entry.get("priceChange24h")),
+        "launchpad": entry.get("launchpad"),
     }
     if out["usd_price"] is None and out["liquidity_usd"] is None:
         return None

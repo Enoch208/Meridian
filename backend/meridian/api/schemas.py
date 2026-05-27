@@ -33,9 +33,15 @@ class ScoreBreakdown(BaseModel):
 class TokenMetrics(BaseModel):
     liquidity_usd: Optional[float] = None
     fdv: Optional[float] = None
+    market_cap: Optional[float] = None
     age_hours: Optional[float] = None
     volume_h24: Optional[float] = None
     buy_sell_ratio_h1: Optional[float] = None
+    buys_h1: Optional[int] = None
+    sells_h1: Optional[int] = None
+    price_usd: Optional[float] = None
+    price_change_24h: Optional[float] = None
+    launchpad: Optional[str] = None
     mint_authority: Optional[str] = None
     freeze_authority: Optional[str] = None
 

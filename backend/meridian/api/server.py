@@ -211,25 +211,27 @@ def create_app() -> FastAPI:
         settings = get_settings()
         candidates = enrich_authorities(candidates, settings.solana_rpc_url)
 
-        # Fill market data from Jupiter when DexScreener didn't provide it
-        # (bonding-curve / launchpad tokens). Purely additive — None on failure.
+        # Enrich with Jupiter market data: fill liquidity/price when DexScreener
+        # lacked them (bonding-curve tokens), and always add 24h change +
+        # launchpad. Purely additive — None on failure.
         import dataclasses
 
         from meridian.datafeed.jupiter import fetch_market
 
         cand = candidates[0]
-        if cand.liquidity_usd is None or cand.price_usd is None:
-            mkt = fetch_market(cand.address)
-            if mkt:
-                candidates[0] = dataclasses.replace(
-                    cand,
-                    liquidity_usd=cand.liquidity_usd
-                    if cand.liquidity_usd is not None
-                    else mkt["liquidity_usd"],
-                    price_usd=cand.price_usd
-                    if cand.price_usd is not None
-                    else mkt["usd_price"],
-                )
+        mkt = fetch_market(cand.address)
+        if mkt:
+            candidates[0] = dataclasses.replace(
+                cand,
+                liquidity_usd=cand.liquidity_usd
+                if cand.liquidity_usd is not None
+                else mkt.get("liquidity_usd"),
+                price_usd=cand.price_usd
+                if cand.price_usd is not None
+                else mkt.get("usd_price"),
+                price_change_24h=mkt.get("price_change_24h"),
+                launchpad=mkt.get("launchpad"),
+            )
 
         if live:
             from meridian.scouts.swarm import SwarmsScoutSwarm

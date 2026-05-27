@@ -28,9 +28,15 @@ export type ScoreBreakdown = {
 export type TokenMetrics = {
   liquidity_usd?: number | null;
   fdv?: number | null;
+  market_cap?: number | null;
   age_hours?: number | null;
   volume_h24?: number | null;
   buy_sell_ratio_h1?: number | null;
+  buys_h1?: number | null;
+  sells_h1?: number | null;
+  price_usd?: number | null;
+  price_change_24h?: number | null;
+  launchpad?: string | null;
   mint_authority?: string | null;
   freeze_authority?: string | null;
 };

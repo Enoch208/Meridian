@@ -27,6 +27,8 @@ class Candidate:
     buys_h1: Optional[int] = None
     sells_h1: Optional[int] = None
     price_usd: Optional[float] = None
+    price_change_24h: Optional[float] = None  # %, from Jupiter
+    launchpad: Optional[str] = None  # e.g. "swarms.world", from Jupiter
     # on-chain (from RPC); strings: "renounced" | "live:<pubkey>" | UNKNOWN
     mint_authority: str = UNKNOWN
     freeze_authority: str = UNKNOWN
