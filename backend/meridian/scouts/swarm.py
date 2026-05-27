@@ -167,17 +167,28 @@ def _score_candidate(c: Candidate, rank: int) -> Pick:
         else:
             reasons.append(f"Thin liquidity ${c.liquidity_usd:,.0f}")
 
-    # Momentum — buy/sell pressure + volume.
+    # Momentum — buy/sell pressure + 24h price trend, dampened by how much
+    # volume actually backs it. Thin volume = low confidence, not strong
+    # momentum (a 9:1 ratio on $900 of volume is noise, not a signal).
     ratio = c.buy_sell_ratio_h1()
-    if ratio is None and not c.volume_h24:
+    change = c.price_change_24h
+    vol = c.volume_h24
+    if ratio is None and change is None and not vol:
         momentum: Optional[int] = None
         unknowns.append("momentum")
     else:
-        momentum = _scale((ratio or 0) * 10000, 30000)
-        if ratio and ratio >= 1.3:
+        pressure = 50.0
+        if ratio is not None:
+            pressure = 50 + (ratio - 1) * 20  # neutral 1.0 → 50; 3.5x → 100
+        if change is not None:
+            pressure += max(-25.0, min(25.0, change / 4))  # price-trend nudge
+        pressure = max(0.0, min(100.0, pressure))
+        confidence = min(1.0, (vol or 0) / 25000)  # ~$25k 24h vol = full weight
+        momentum = int(round(pressure * (0.45 + 0.55 * confidence)))
+        if ratio is not None and ratio >= 1.3:
             reasons.append(f"Buyer-led {ratio:.1f}x buy/sell (1h)")
-        elif c.volume_h24:
-            reasons.append(f"${c.volume_h24:,.0f} 24h volume")
+        elif vol:
+            reasons.append(f"${vol:,.0f} 24h volume")
 
     unknowns.append("smart_money")  # dedicated scout ships in v1.5
 
