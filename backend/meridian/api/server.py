@@ -24,6 +24,7 @@ from meridian.api.schemas import (
     EvaluateRequest,
     EvaluateResponse,
     HealthResponse,
+    SecurityCheck,
     RunResponse,
     TrackRecordResponse,
     TrackRecordSummary,
@@ -226,6 +227,15 @@ def create_app() -> FastAPI:
         if not picks:
             return EvaluateResponse(found=False, error="Couldn't score that token.")
 
-        return EvaluateResponse(found=True, pick=pick_to_response(picks[0]))
+        # Optional security/honeypot enrichment (server-side, env-gated). Any
+        # failure → None, so the response is identical to before when disabled.
+        from meridian.datafeed.tokencheck import fetch_security
+
+        sec = fetch_security(candidates[0].address)
+        security = SecurityCheck(**sec) if sec else None
+
+        return EvaluateResponse(
+            found=True, pick=pick_to_response(picks[0]), security=security
+        )
 
     return app

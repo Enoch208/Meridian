@@ -108,9 +108,23 @@ class EvaluateRequest(BaseModel):
     token: str
 
 
+class SecurityCheck(BaseModel):
+    """Optional third-party honeypot / contract security signals."""
+    overall_score: Optional[int] = None
+    is_honeypot: Optional[bool] = None
+    honeypot_reason: Optional[str] = None
+    buy_tax: Optional[float] = None
+    sell_tax: Optional[float] = None
+    transfer_tax: Optional[float] = None
+    code_score: Optional[int] = None
+    market_score: Optional[int] = None
+    liquidity_locked_pct: Optional[float] = None
+
+
 class EvaluateResponse(BaseModel):
     found: bool
     pick: Optional[PickResponse] = None
+    security: Optional[SecurityCheck] = None
     disclaimer: str = (
         "Not financial advice. 'Worth investigating', never 'buy'."
     )

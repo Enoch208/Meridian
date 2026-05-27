@@ -17,9 +17,11 @@ Run:  python -m meridian.bot
 from __future__ import annotations
 
 import html
+import logging
 import os
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
@@ -28,6 +30,8 @@ from meridian import config as _config  # noqa: F401 — import triggers load_do
 API_URL = os.getenv("MERIDIAN_API_URL", "http://localhost:8000").rstrip("/")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TG = f"https://api.telegram.org/bot{TOKEN}"
+LOG = logging.getLogger("meridian.bot")
+_HTTP_CLIENT: httpx.Client | None = None
 
 DISCLAIMER = "Worth investigating — never financial advice."
 
@@ -117,20 +121,44 @@ def format_track(data: dict) -> str:
 
 
 def _get(path: str) -> dict | None:
+    started = time.perf_counter()
     try:
-        resp = httpx.get(f"{API_URL}{path}", timeout=30)
+        resp = (
+            _HTTP_CLIENT.get(f"{API_URL}{path}", timeout=30)
+            if _HTTP_CLIENT
+            else httpx.get(f"{API_URL}{path}", timeout=30)
+        )
         resp.raise_for_status()
+        LOG.info("api GET %s completed in %.3fs", path, time.perf_counter() - started)
         return resp.json()
-    except Exception:
+    except Exception as exc:
+        LOG.warning(
+            "api GET %s failed after %.3fs: %s",
+            path,
+            time.perf_counter() - started,
+            exc,
+        )
         return None
 
 
 def _post(path: str, payload: dict) -> dict | None:
+    started = time.perf_counter()
     try:
-        resp = httpx.post(f"{API_URL}{path}", json=payload, timeout=70)
+        resp = (
+            _HTTP_CLIENT.post(f"{API_URL}{path}", json=payload, timeout=70)
+            if _HTTP_CLIENT
+            else httpx.post(f"{API_URL}{path}", json=payload, timeout=70)
+        )
         resp.raise_for_status()
+        LOG.info("api POST %s completed in %.3fs", path, time.perf_counter() - started)
         return resp.json()
-    except Exception:
+    except Exception as exc:
+        LOG.warning(
+            "api POST %s failed after %.3fs: %s",
+            path,
+            time.perf_counter() - started,
+            exc,
+        )
         return None
 
 
@@ -167,37 +195,56 @@ def format_evaluate(data: dict | None) -> str:
 
 def _send(chat_id: int, text: str) -> int | None:
     """Send a message; return its message_id (so it can be edited later)."""
+    started = time.perf_counter()
     try:
-        resp = httpx.post(
-            f"{TG}/sendMessage",
-            json={
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
-            timeout=30,
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        resp = (
+            _HTTP_CLIENT.post(f"{TG}/sendMessage", json=payload, timeout=30)
+            if _HTTP_CLIENT
+            else httpx.post(f"{TG}/sendMessage", json=payload, timeout=30)
         )
+        resp.raise_for_status()
+        LOG.info("telegram sendMessage completed in %.3fs", time.perf_counter() - started)
         return resp.json().get("result", {}).get("message_id")
-    except Exception:
+    except Exception as exc:
+        LOG.warning(
+            "telegram sendMessage failed after %.3fs: %s",
+            time.perf_counter() - started,
+            exc,
+        )
         return None
 
 
 def _edit(chat_id: int, message_id: int, text: str) -> None:
+    started = time.perf_counter()
     try:
-        httpx.post(
-            f"{TG}/editMessageText",
-            json={
-                "chat_id": chat_id,
-                "message_id": message_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
-            timeout=30,
+        payload = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        resp = (
+            _HTTP_CLIENT.post(f"{TG}/editMessageText", json=payload, timeout=30)
+            if _HTTP_CLIENT
+            else httpx.post(f"{TG}/editMessageText", json=payload, timeout=30)
         )
-    except Exception:
-        pass
+        resp.raise_for_status()
+        LOG.info(
+            "telegram editMessageText completed in %.3fs", time.perf_counter() - started
+        )
+    except Exception as exc:
+        LOG.warning(
+            "telegram editMessageText failed after %.3fs: %s",
+            time.perf_counter() - started,
+            exc,
+        )
 
 
 def _reply(chat_id: int, ack: str, path: str, formatter: Callable[[dict], str]) -> None:
@@ -221,34 +268,47 @@ def _reply(chat_id: int, ack: str, path: str, formatter: Callable[[dict], str]) 
 def handle(text: str, chat_id: int) -> None:
     """Dispatch a single command to a reply."""
     cmd = text.strip().split()[0].lower().split("@")[0] if text.strip() else ""
-    if cmd in ("/start", "/help"):
-        _send(chat_id, START_TEXT)
-    elif cmd == "/picks":
-        _reply(chat_id, "🛰 Scanning today's launches…", "/api/daily-shortlist", format_picks)
-    elif cmd == "/track":
-        _reply(chat_id, "📊 Pulling the track record…", "/api/track-record", format_track)
-    elif cmd == "/check":
-        parts = text.strip().split(maxsplit=1)
-        if len(parts) < 2 or not parts[1].strip():
-            _send(chat_id, "Usage: <code>/check &lt;token address&gt;</code>")
-        else:
-            mid = _send(chat_id, "🔎 Evaluating…")
-            data = _post("/api/evaluate", {"token": parts[1].strip()})
-            out = format_evaluate(data)
-            if mid is not None:
-                _edit(chat_id, mid, out)
+    started = time.perf_counter()
+    try:
+        if cmd in ("/start", "/help"):
+            _send(chat_id, START_TEXT)
+        elif cmd == "/picks":
+            _reply(chat_id, "🛰 Scanning today's launches…", "/api/daily-shortlist", format_picks)
+        elif cmd == "/track":
+            _reply(chat_id, "📊 Pulling the track record…", "/api/track-record", format_track)
+        elif cmd == "/check":
+            parts = text.strip().split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                _send(chat_id, "Usage: <code>/check &lt;token address&gt;</code>")
             else:
-                _send(chat_id, out)
-    else:
-        _send(chat_id, "Unknown command. Try /picks, /track, /check, or /help.")
+                mid = _send(chat_id, "🔎 Evaluating…")
+                data = _post("/api/evaluate", {"token": parts[1].strip()})
+                out = format_evaluate(data)
+                if mid is not None:
+                    _edit(chat_id, mid, out)
+                else:
+                    _send(chat_id, out)
+        else:
+            _send(chat_id, "Unknown command. Try /picks, /track, /check, or /help.")
+    finally:
+        LOG.info("command %s completed in %.3fs", cmd or "<empty>", time.perf_counter() - started)
 
 
 def main() -> None:
+    global _HTTP_CLIENT
+
     if not TOKEN:
         raise SystemExit("TELEGRAM_BOT_TOKEN is not set (get one from @BotFather).")
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     print(f"Meridian bot polling… (API: {API_URL})")
     offset: int | None = None
-    with httpx.Client(timeout=40) as client:
+    with httpx.Client(timeout=40) as client, ThreadPoolExecutor(
+        max_workers=8, thread_name_prefix="telegram-command"
+    ) as executor:
+        _HTTP_CLIENT = client
         while True:
             try:
                 params: dict[str, object] = {"timeout": 30}
@@ -267,7 +327,17 @@ def main() -> None:
                 text = msg.get("text", "")
                 chat_id = msg.get("chat", {}).get("id")
                 if chat_id and text:
-                    handle(text, chat_id)
+                    cmd = text.strip().split()[0].lower().split("@")[0]
+                    received_at = msg.get("date")
+                    if isinstance(received_at, int):
+                        LOG.info(
+                            "received %s after %.3fs in telegram queue",
+                            cmd,
+                            max(0.0, time.time() - received_at),
+                        )
+                    else:
+                        LOG.info("received %s", cmd)
+                    executor.submit(handle, text, chat_id)
 
 
 if __name__ == "__main__":

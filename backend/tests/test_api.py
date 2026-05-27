@@ -188,6 +188,32 @@ def test_evaluate_scores_a_token(tmp_path, monkeypatch):
     assert body["pick"]["standout_risk"]
 
 
+def test_evaluate_includes_security_when_available(tmp_path, monkeypatch):
+    """When the security check returns data, it's attached to the response."""
+    from meridian.datafeed import dexscreener, enrich, tokencheck
+    from meridian.datafeed.models import Candidate
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    cand = Candidate(
+        address="X", name="T", symbol="TST", pair_url="u",
+        liquidity_usd=50000, fdv=200000, market_cap=190000, age_hours=10,
+        volume_h24=80000, volume_h6=30000, volume_h1=9000, buys_h1=80, sells_h1=40,
+        price_usd=0.001, mint_authority="renounced", freeze_authority="renounced",
+    )
+    monkeypatch.setattr(dexscreener, "fetch_token", lambda a, client=None: [cand])
+    monkeypatch.setattr(enrich, "enrich_authorities", lambda c, rpc: c)
+    monkeypatch.setattr(
+        tokencheck, "fetch_security",
+        lambda addr: {"is_honeypot": False, "buy_tax": 1.0, "overall_score": 80},
+    )
+
+    client = TestClient(create_app())
+    body = client.post("/api/evaluate", json={"token": "X"}).json()
+    assert body["found"] is True
+    assert body["security"]["is_honeypot"] is False
+    assert body["security"]["buy_tax"] == 1.0
+
+
 def test_evaluate_not_found(tmp_path, monkeypatch):
     """Unknown token → found=False, 200 (graceful)."""
     from meridian.datafeed import dexscreener
