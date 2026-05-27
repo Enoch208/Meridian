@@ -315,8 +315,10 @@ def main() -> None:
                 if offset is not None:
                     params["offset"] = offset
                 resp = client.get(f"{TG}/getUpdates", params=params)
+                resp.raise_for_status()
                 updates = resp.json().get("result", [])
-            except Exception:
+            except Exception as exc:
+                LOG.warning("telegram getUpdates failed: %s", exc)
                 time.sleep(3)
                 continue
             for update in updates:

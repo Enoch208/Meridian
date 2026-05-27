@@ -56,3 +56,9 @@ services:
         sync: false
       - key: MONGODB_DB
         value: meridian
+
+      # ── Token security check (optional) — set manually if used ──────────
+      - key: TOKEN_CHECK_API_URL
+        sync: false
+      - key: TOKEN_CHECK_ORIGIN
+        sync: false
