@@ -17,6 +17,10 @@ class Settings:
     data_dir: str
     api_port: int
     run_secret: str
+    # Durable storage — when mongodb_uri is set, the shortlist + call log are
+    # persisted to MongoDB (survives Render restarts) instead of the local disk.
+    mongodb_uri: str
+    mongodb_db: str
 
 
 def get_settings() -> Settings:
@@ -29,4 +33,6 @@ def get_settings() -> Settings:
         data_dir=os.getenv("DATA_DIR", "./data"),
         api_port=int(os.getenv("MERIDIAN_API_PORT", "8000")),
         run_secret=os.getenv("MERIDIAN_RUN_SECRET", ""),
+        mongodb_uri=os.getenv("MONGODB_URI", ""),
+        mongodb_db=os.getenv("MONGODB_DB", "meridian"),
     )

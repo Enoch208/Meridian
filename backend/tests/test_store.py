@@ -1,5 +1,11 @@
 """Tests for trackrecord/store.py — Task 10."""
-from meridian.trackrecord.store import append_calls, load_calls, derive_scorecard
+from meridian.trackrecord.store import (
+    append_calls,
+    derive_scorecard,
+    load_calls,
+    load_shortlist,
+    save_shortlist,
+)
 from meridian.datafeed.models import Candidate, Pick
 
 
@@ -27,6 +33,24 @@ def test_load_calls_missing_file(tmp_path):
     """load_calls returns [] when calls.jsonl doesn't exist."""
     calls = load_calls(str(tmp_path))
     assert calls == []
+
+
+def test_shortlist_missing_returns_none(tmp_path):
+    assert load_shortlist(str(tmp_path)) is None
+
+
+def test_shortlist_roundtrip(tmp_path):
+    shortlist = {"generated_at": "2026-05-26T18:00:00Z", "picks": [{"rank": 1}]}
+    save_shortlist(shortlist, str(tmp_path))
+    loaded = load_shortlist(str(tmp_path))
+    assert loaded == shortlist
+
+
+def test_shortlist_overwrites(tmp_path):
+    save_shortlist({"generated_at": "a", "picks": []}, str(tmp_path))
+    save_shortlist({"generated_at": "b", "picks": [{"rank": 1}]}, str(tmp_path))
+    loaded = load_shortlist(str(tmp_path))
+    assert loaded["generated_at"] == "b" and len(loaded["picks"]) == 1
 
 
 def test_append_only_never_rewrites(tmp_path):

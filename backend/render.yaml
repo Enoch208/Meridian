@@ -48,3 +48,11 @@ services:
       # ── Run secret (protects the POST /api/run endpoint) ────────────────
       - key: MERIDIAN_RUN_SECRET
         sync: false        # set this manually in the Render dashboard
+
+      # ── Durable storage (MongoDB Atlas) — survives restarts/sleeps ──────
+      # Set MONGODB_URI manually in the dashboard. Without it, data lives on
+      # the ephemeral disk and is lost when the instance restarts.
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: meridian

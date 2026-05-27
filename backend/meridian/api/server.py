@@ -92,23 +92,22 @@ def create_app() -> FastAPI:
 
     @app.get("/api/daily-shortlist", response_model=DailyShortlistResponse)
     def daily_shortlist() -> DailyShortlistResponse:
-        """Return the most-recently generated shortlist artifact.
+        """Return the most-recently generated shortlist.
 
-        If ``latest_shortlist.json`` is missing, degrade gracefully:
-        return 200 with ``picks: []`` and ``generated_at: null`` but keep
-        all contract keys (disclaimer, data_source, …) so the frontend
-        never sees a missing field.
+        If none has been saved yet, degrade gracefully: return 200 with
+        ``picks: []`` and ``generated_at: null`` but keep all contract keys
+        (disclaimer, data_source, …) so the frontend never sees a missing field.
         """
         from meridian.config import get_settings  # read at request time
+        from meridian.trackrecord.store import load_shortlist
 
         settings = get_settings()
-        artifact = pathlib.Path(settings.data_dir) / "latest_shortlist.json"
+        raw = load_shortlist(settings.data_dir)
 
-        if not artifact.exists():
+        if not raw:
             return DailyShortlistResponse()
 
         try:
-            raw = json.loads(artifact.read_text(encoding="utf-8"))
             return DailyShortlistResponse(**raw)
         except Exception:
             # Corrupt / unexpected format — degrade gracefully

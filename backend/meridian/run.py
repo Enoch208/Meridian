@@ -21,7 +21,7 @@ from meridian.config import get_settings
 from meridian.datafeed.models import Candidate, Pick
 from meridian.pipeline import run_pipeline
 from meridian.scouts.swarm import MockScoutSwarm
-from meridian.trackrecord.store import append_calls
+from meridian.trackrecord.store import append_calls, save_shortlist
 
 
 def _demo_candidates() -> list[Candidate]:
@@ -92,13 +92,12 @@ def main(argv: list[str] | None = None) -> list[Pick]:
     picks = run_pipeline(swarm, fetch=fetch, enrich=enrich)
 
     now = datetime.now(timezone.utc)
-    data_dir = pathlib.Path(settings.data_dir)
-    data_dir.mkdir(parents=True, exist_ok=True)
-    artifact = data_dir / "latest_shortlist.json"
-    artifact.write_text(json.dumps(build_shortlist_dict(picks, now), indent=2), encoding="utf-8")
-    append_calls(picks, str(data_dir), now=now)
+    data_dir = str(settings.data_dir)
+    save_shortlist(build_shortlist_dict(picks, now), data_dir)
+    append_calls(picks, data_dir, now=now)
 
-    print(f"Wrote {len(picks)} pick(s) to {artifact}")
+    store = "MongoDB" if settings.mongodb_uri else data_dir
+    print(f"Wrote {len(picks)} pick(s) to {store}")
     return picks
 
 

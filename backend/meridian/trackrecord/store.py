@@ -1,8 +1,13 @@
-"""Append-only call log + derived scorecard.
+"""Shortlist + append-only call log, with a derived scorecard.
 
-`calls.jsonl` is the immutable source of truth — lines are only ever appended,
-never edited or deleted.  The public scorecard is *derived* from it each time
-`derive_scorecard` is called so misses can never be silently dropped.
+Two backends, chosen at runtime:
+  • **MongoDB** when ``MONGODB_URI`` is set — durable across Render restarts.
+  • **Local files** otherwise (``latest_shortlist.json`` + ``calls.jsonl``) —
+    the default, and what the test suite uses.
+
+``calls`` is append-only in both backends — records are only ever inserted,
+never edited or deleted, so the public scorecard (derived in
+``derive_scorecard``) can never silently drop a miss.
 """
 import json
 import pathlib
@@ -11,12 +16,100 @@ from typing import Any
 
 from meridian.datafeed.models import Pick
 
-
 _CALLS_FILENAME = "calls.jsonl"
+_SHORTLIST_FILENAME = "latest_shortlist.json"
+
+# Cached Mongo client (lazy — pymongo is only imported/connected when a
+# MONGODB_URI is configured, so file mode needs no Mongo dependency).
+_mongo_client = None
+
+
+def _mongo_db():
+    """Return a MongoDB database handle if ``MONGODB_URI`` is set, else ``None``."""
+    from meridian.config import get_settings
+
+    settings = get_settings()
+    if not settings.mongodb_uri:
+        return None
+
+    global _mongo_client
+    if _mongo_client is None:
+        from pymongo import MongoClient
+
+        _mongo_client = MongoClient(settings.mongodb_uri)
+    return _mongo_client[settings.mongodb_db]
 
 
 def _calls_path(data_dir: str) -> pathlib.Path:
     return pathlib.Path(data_dir) / _CALLS_FILENAME
+
+
+def _shortlist_path(data_dir: str) -> pathlib.Path:
+    return pathlib.Path(data_dir) / _SHORTLIST_FILENAME
+
+
+# ---------------------------------------------------------------------------
+# Shortlist (the latest ranked picks — a single, overwritten document)
+# ---------------------------------------------------------------------------
+
+
+def save_shortlist(shortlist: dict, data_dir: str) -> None:
+    """Persist the latest shortlist (overwrites the previous one)."""
+    db = _mongo_db()
+    if db is not None:
+        db.shortlist.replace_one(
+            {"_id": "latest"}, {"_id": "latest", **shortlist}, upsert=True
+        )
+        return
+
+    path = _shortlist_path(data_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(shortlist, indent=2), encoding="utf-8")
+
+
+def load_shortlist(data_dir: str) -> dict | None:
+    """Return the latest shortlist dict, or ``None`` if none has been saved."""
+    db = _mongo_db()
+    if db is not None:
+        doc = db.shortlist.find_one({"_id": "latest"})
+        if not doc:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    path = _shortlist_path(data_dir)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Call log (append-only)
+# ---------------------------------------------------------------------------
+
+
+def _build_records(picks: list[Pick], now: datetime) -> list[dict[str, Any]]:
+    date_str = now.strftime("%Y-%m-%d")
+    return [
+        {
+            "date": date_str,
+            "rank": pick.rank,
+            "token": {
+                "name": pick.candidate.name,
+                "symbol": pick.candidate.symbol,
+                "address": pick.candidate.address,
+            },
+            "score_at_call": pick.composite_score,
+            "price_at_call_usd": pick.candidate.price_usd,
+            "price_now_usd": None,
+            "pct_change": None,
+            "status": "open",
+        }
+        for pick in picks
+    ]
 
 
 def append_calls(
@@ -24,45 +117,39 @@ def append_calls(
     data_dir: str,
     now: datetime | None = None,
 ) -> None:
-    """Append one JSON line per pick to ``<data_dir>/calls.jsonl``.
+    """Append one record per pick to the call log (never rewrites existing ones).
 
-    Each line has the fields required by the §7 track-record contract:
-      date, rank, token{name,symbol,address}, score_at_call,
-      price_at_call_usd, price_now_usd=None, pct_change=None, status="open".
-
-    The file is NEVER rewritten — only ``"a"`` mode is used.
+    Each record carries the §7 track-record fields: date, rank,
+    token{name,symbol,address}, score_at_call, price_at_call_usd,
+    price_now_usd=None, pct_change=None, status="open".
     """
     if now is None:
         now = datetime.now(timezone.utc)
+    records = _build_records(picks, now)
+    if not records:
+        return
 
-    date_str = now.strftime("%Y-%m-%d")
+    db = _mongo_db()
+    if db is not None:
+        db.calls.insert_many([dict(r) for r in records])
+        return
+
     path = _calls_path(data_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
-
     with path.open("a", encoding="utf-8") as fh:
-        for pick in picks:
-            record: dict[str, Any] = {
-                "date": date_str,
-                "rank": pick.rank,
-                "token": {
-                    "name": pick.candidate.name,
-                    "symbol": pick.candidate.symbol,
-                    "address": pick.candidate.address,
-                },
-                "score_at_call": pick.composite_score,
-                "price_at_call_usd": pick.candidate.price_usd,
-                "price_now_usd": None,
-                "pct_change": None,
-                "status": "open",
-            }
+        for record in records:
             fh.write(json.dumps(record) + "\n")
 
 
 def load_calls(data_dir: str) -> list[dict]:
-    """Read all records from ``<data_dir>/calls.jsonl``.
+    """Read all call records in chronological order. Empty list if none."""
+    db = _mongo_db()
+    if db is not None:
+        return [
+            {k: v for k, v in doc.items() if k != "_id"}
+            for doc in db.calls.find().sort("_id", 1)
+        ]
 
-    Returns an empty list if the file does not exist.
-    """
     path = _calls_path(data_dir)
     if not path.exists():
         return []
