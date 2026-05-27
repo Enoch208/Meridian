@@ -16,9 +16,9 @@ investigating today — with a public, running track record of every call.
 ![Swarms Marketplace](https://img.shields.io/badge/Swarms-Marketplace-8B5CF6?style=flat-square)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Python_3.11+-009688?style=flat-square&logo=fastapi)
-![Status](https://img.shields.io/badge/status-v1_sprint-A78BFA?style=flat-square)
+![Status](https://img.shields.io/badge/status-live-A78BFA?style=flat-square)
 
-`$MRDN` · built for **Agent Capital Markets** · *worth investigating, never financial advice*
+`$MRDN` · *worth investigating, never financial advice*
 
 **Try it → [@usemeridianbot on Telegram](https://t.me/usemeridianbot)** · `/picks` for today's call
 
@@ -29,12 +29,11 @@ investigating today — with a public, running track record of every call.
 ## Table of contents
 
 - [The thesis](#the-thesis)
-- [Why this wins](#why-this-wins)
 - [Architecture](#architecture)
 - [How the swarm scores a launch](#how-the-swarm-scores-a-launch)
 - [The scout swarm](#the-scout-swarm)
 - [The scoring rubric & honesty model](#the-scoring-rubric--honesty-model)
-- [The track record — the moat](#the-track-record--the-moat)
+- [The track record](#the-track-record)
 - [API contract](#api-contract)
 - [Tokenomics — `$MRDN`](#tokenomics--mrdn)
 - [Repository](#repository)
@@ -56,22 +55,6 @@ across new-pair scanners, wallet trackers, and Twitter.
 Today's leading agent answers *"is this token I already found safe?"*
 **Meridian answers the question that comes before it: "which tokens should I
 even be looking at right now?"**
-
-## Why this wins
-
-| | One-shot due-diligence | **Meridian** |
-|---|---|---|
-| **Job** | Evaluate a token you bring | Discover tokens you didn't know about |
-| **Stance** | Defensive — "is it safe?" | Offensive — "where's the edge?" |
-| **Cadence** | One-shot, on demand | Daily, recurring |
-| **Memory** | None | Public, running track record |
-| **Reason to return** | Weak — use once, flip | Strong — the next call is tomorrow |
-| **Viral engine** | A single verdict screenshot | A track record that compounds |
-
-That single shift — from reactive evaluation to proactive discovery — is the
-product. The **public track record** is the moat: one-shot tools structurally
-can't have one, and an honest record of wins *and* misses is the cheapest, most
-credible marketing in crypto.
 
 ## Architecture
 
@@ -167,13 +150,12 @@ and are the product's reason to exist:
 3. **Always name the standout risk.** Omitting it is a scoring error.
 4. **Absence of evidence is a mild negative**, not a neutral.
 
-## The track record — the moat
+## The track record
 
 Every call is written to an **append-only `calls.jsonl`** log with a timestamp
 and the score it was given. The public scorecard (hit / miss / open + hit-rate)
-is *derived* from that log — so a miss can never be silently dropped. **The
-record is honest by construction**, which is exactly what a one-shot
-due-diligence tool structurally cannot offer.
+is *derived* from that log — so a miss can never be silently dropped. The record
+is honest by construction: wins and misses are both shown.
 
 ## API contract
 
@@ -210,7 +192,7 @@ The frontend consumes two read-only endpoints (full schema in
 ## Tokenomics — `$MRDN`
 
 Because the core utility is *daily and recurring*, holding is rational rather
-than purely speculative — the defense against the churn that one-shot tools see.
+than purely speculative — the next call is always tomorrow's.
 
 | Tier | What you get |
 |---|---|
@@ -219,8 +201,8 @@ than purely speculative — the defense against the churn that one-shot tools se
 
 Listed as a **tokenized prompt** on the Swarms Marketplace via Frenzy Mode. The
 product *is* the marketing: each day's call is content, and the running track
-record compounds into receipts. *(Hold-to-unlock gating ships with the
-roadmap below.)*
+record compounds into receipts. *(Hold-to-unlock is live on the `/demo`
+dashboard via wallet-connect.)*
 
 **Live on Solana** — `$MRDN` is minted and trading:
 
@@ -294,12 +276,12 @@ single Solana RPC call.
 
 **Shipped (v1)** — live launch datafeed, deterministic prefilter, real Swarms
 scout swarm (on-chain · liquidity · momentum → synthesizing lead), append-only
-track record with a derived scorecard, FastAPI service, and the full frontend
-with a live shortlist + track-record dashboard.
+track record with a derived scorecard, FastAPI service, the full frontend with a
+live shortlist + track-record dashboard, a `$MRDN` hold-to-unlock gate (Reown
+wallet-connect + on-chain balance check), and a Telegram bot.
 
-**Next** — dedicated smart-money scout, automated track-record outcome updates
-across the judging window, `$MRDN` hold-to-unlock gating, real-time push alerts,
-and wallet connect.
+**Next** — dedicated smart-money scout, automated track-record outcome updates,
+and real-time push alerts.
 
 ---
 
