@@ -20,6 +20,7 @@ import { LINKS } from "@/lib/links";
 // one (GitHub) opens in a new tab.
 const NAV_LINKS: { label: string; href: string; external?: boolean }[] = [
   { label: "The Swarm", href: "/#use-cases" },
+  { label: "Evaluate", href: "/evaluate" },
   { label: "Track Record", href: "/#protocol" },
   { label: "$MRDN", href: "/#token" },
   { label: "GitHub", href: LINKS.github, external: true },

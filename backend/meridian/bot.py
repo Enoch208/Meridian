@@ -37,7 +37,8 @@ START_TEXT = (
     "surface the few worth investigating today — with a public track record of "
     "every call.\n\n"
     "/picks — today's ranked shortlist\n"
-    "/track — the public track record (wins &amp; misses)\n\n"
+    "/track — the public track record (wins &amp; misses)\n"
+    "/check &lt;address&gt; — score any Solana token\n\n"
     f"<i>{DISCLAIMER}</i>"
 )
 
@@ -124,6 +125,46 @@ def _get(path: str) -> dict | None:
         return None
 
 
+def _post(path: str, payload: dict) -> dict | None:
+    try:
+        resp = httpx.post(f"{API_URL}{path}", json=payload, timeout=70)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
+
+
+def format_evaluate(data: dict | None) -> str:
+    """Render an /api/evaluate response as an HTML Telegram message (pure)."""
+    if not data or not data.get("found") or not data.get("pick"):
+        if data and data.get("error"):
+            return _esc(data["error"])
+        return "No Solana pair found for that token."
+    p = data["pick"]
+    tok = p.get("token", {})
+    scores = p.get("scores", {})
+    lines = [
+        f"🔎 <b>${_esc(tok.get('symbol', '?'))}</b> — score "
+        f"<b>{_fmt_score(p.get('composite_score'))}/100</b>",
+        f"<i>{_esc(tok.get('name', ''))}</i>",
+        "",
+        f"On-chain {_fmt_score(scores.get('onchain'))} · "
+        f"Liquidity {_fmt_score(scores.get('liquidity'))} · "
+        f"Momentum {_fmt_score(scores.get('momentum'))} · "
+        f"Smart-money {_fmt_score(scores.get('smart_money'))}",
+        "",
+    ]
+    for reason in (p.get("top_reasons") or [])[:2]:
+        lines.append(f"✓ {_esc(reason)}")
+    if p.get("standout_risk"):
+        lines.append(f"⚠ Risk: {_esc(p['standout_risk'])}")
+    if p.get("one_line_read"):
+        lines.append(f"<i>{_esc(p['one_line_read'])}</i>")
+    lines.append("")
+    lines.append(f"<i>{DISCLAIMER}</i>")
+    return "\n".join(lines).strip()
+
+
 def _send(chat_id: int, text: str) -> int | None:
     """Send a message; return its message_id (so it can be edited later)."""
     try:
@@ -186,8 +227,20 @@ def handle(text: str, chat_id: int) -> None:
         _reply(chat_id, "🛰 Scanning today's launches…", "/api/daily-shortlist", format_picks)
     elif cmd == "/track":
         _reply(chat_id, "📊 Pulling the track record…", "/api/track-record", format_track)
+    elif cmd == "/check":
+        parts = text.strip().split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            _send(chat_id, "Usage: <code>/check &lt;token address&gt;</code>")
+        else:
+            mid = _send(chat_id, "🔎 Evaluating…")
+            data = _post("/api/evaluate", {"token": parts[1].strip()})
+            out = format_evaluate(data)
+            if mid is not None:
+                _edit(chat_id, mid, out)
+            else:
+                _send(chat_id, out)
     else:
-        _send(chat_id, "Unknown command. Try /picks, /track, or /help.")
+        _send(chat_id, "Unknown command. Try /picks, /track, /check, or /help.")
 
 
 def main() -> None:

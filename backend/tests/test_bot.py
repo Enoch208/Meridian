@@ -1,5 +1,5 @@
 """Tests for the Telegram bot's pure formatters (no network)."""
-from meridian.bot import format_picks, format_track
+from meridian.bot import format_evaluate, format_picks, format_track
 
 
 def test_format_picks_empty():
@@ -47,6 +47,28 @@ def test_format_picks_escapes_html():
 
 def test_format_track_empty():
     assert "empty" in format_track({"summary": {"total_calls": 0}})
+
+
+def test_format_evaluate_found():
+    data = {
+        "found": True,
+        "pick": {
+            "token": {"symbol": "NOVA", "name": "Nova"},
+            "composite_score": 78,
+            "scores": {"onchain": 80, "liquidity": 75, "momentum": 70, "smart_money": None},
+            "top_reasons": ["LP locked"],
+            "standout_risk": "Young pair",
+            "one_line_read": "Clean and early.",
+        },
+    }
+    out = format_evaluate(data)
+    assert "$NOVA" in out and "78/100" in out
+    assert "Young pair" in out and "Smart-money —" in out
+
+
+def test_format_evaluate_not_found():
+    assert "No Solana pair" in format_evaluate({"found": False})
+    assert "boom" in format_evaluate({"found": False, "error": "boom"})
 
 
 def test_format_track_summary_and_calls():
