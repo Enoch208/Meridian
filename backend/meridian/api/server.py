@@ -70,7 +70,22 @@ def create_app() -> FastAPI:
     ``get_settings()`` so pytest's ``monkeypatch.setenv`` takes effect before
     the first request without needing to restart the process.
     """
-    app = FastAPI(title="Meridian Scout API", version="0.1.0")
+    app = FastAPI(
+        title="Meridian Scout API",
+        version="0.1.0",
+        description=(
+            "The discovery scout swarm for Solana launches. "
+            "Three public read endpoints (daily shortlist, track record, "
+            "evaluate any token) and one admin endpoint to trigger a run. "
+            "Every pick is framed as 'worth investigating' — never financial advice."
+        ),
+        servers=[
+            {
+                "url": "https://meridian-backend-qae0.onrender.com",
+                "description": "Production",
+            }
+        ],
+    )
 
     # Permissive CORS for dev — tighten via env later.
     app.add_middleware(
@@ -85,7 +100,12 @@ def create_app() -> FastAPI:
     # GET /health
     # ------------------------------------------------------------------
 
-    @app.get("/health", response_model=HealthResponse)
+    @app.get(
+        "/health",
+        response_model=HealthResponse,
+        tags=["Health"],
+        summary="Heartbeat",
+    )
     def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
@@ -93,7 +113,12 @@ def create_app() -> FastAPI:
     # GET /api/daily-shortlist
     # ------------------------------------------------------------------
 
-    @app.get("/api/daily-shortlist", response_model=DailyShortlistResponse)
+    @app.get(
+        "/api/daily-shortlist",
+        response_model=DailyShortlistResponse,
+        tags=["Public"],
+        summary="Today's ranked shortlist",
+    )
     def daily_shortlist() -> DailyShortlistResponse:
         """Return the most-recently generated shortlist.
 
@@ -120,7 +145,12 @@ def create_app() -> FastAPI:
     # GET /api/track-record
     # ------------------------------------------------------------------
 
-    @app.get("/api/track-record", response_model=TrackRecordResponse)
+    @app.get(
+        "/api/track-record",
+        response_model=TrackRecordResponse,
+        tags=["Public"],
+        summary="Public track record (hits / misses / open)",
+    )
     def track_record() -> TrackRecordResponse:
         """Build the public scorecard live from ``calls.jsonl``.
 
@@ -152,7 +182,12 @@ def create_app() -> FastAPI:
     # POST /api/run  (protected)
     # ------------------------------------------------------------------
 
-    @app.post("/api/run", response_model=RunResponse)
+    @app.post(
+        "/api/run",
+        response_model=RunResponse,
+        tags=["Admin"],
+        summary="Trigger a new daily run (gated by x-run-secret)",
+    )
     def run_pipeline(
         background_tasks: BackgroundTasks,
         x_run_secret: str = Header(default="", alias="x-run-secret"),
@@ -182,7 +217,12 @@ def create_app() -> FastAPI:
     # POST /api/evaluate  (on-demand single-token scoring)
     # ------------------------------------------------------------------
 
-    @app.post("/api/evaluate", response_model=EvaluateResponse)
+    @app.post(
+        "/api/evaluate",
+        response_model=EvaluateResponse,
+        tags=["Public"],
+        summary="Score any Solana token on demand",
+    )
     def evaluate(req: EvaluateRequest, live: bool = False) -> EvaluateResponse:
         """Score a single token on demand against the same rubric.
 
