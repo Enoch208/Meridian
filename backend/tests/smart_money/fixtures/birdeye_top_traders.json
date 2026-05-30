@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "data": {
+    "items": [
+      {"owner": "WHALE_1", "volume": 120000, "trade": 24, "volumeBuy": 80000, "volumeSell": 40000, "pnl": 18000},
+      {"owner": "WHALE_2", "volume": 75000, "trade": 12, "pnl": 5500},
+      {"owner": "WHALE_3", "volume": 30000, "trade": 6, "pnl": -1200}
+    ]
+  }
+}

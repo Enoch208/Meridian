@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy this to backend/data/smart_money_curated.json (gitignored) and fill in real, publicly-claimed Solana wallets. Entries whose address starts with '<' are silently skipped.",
+  "wallets": [
+    {
+      "address": "<replace-with-public-wallet-address>",
+      "label": "example-kol",
+      "source_url": "https://example.com/where-you-found-this"
+    }
+  ]
+}

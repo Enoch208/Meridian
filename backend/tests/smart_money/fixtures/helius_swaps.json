@@ -1,0 +1,48 @@
+[
+  {
+    "signature": "sig_1_oldest",
+    "timestamp": 1716000000,
+    "type": "SWAP",
+    "tokenTransfers": [
+      {"mint": "MINT_X", "tokenAmount": 1000, "fromUserAccount": "DEX_POOL", "toUserAccount": "BUYER_A"},
+      {"mint": "So11111111111111111111111111111111111111112", "tokenAmount": 0.5, "fromUserAccount": "BUYER_A", "toUserAccount": "DEX_POOL"}
+    ],
+    "nativeTransfers": []
+  },
+  {
+    "signature": "sig_2",
+    "timestamp": 1716000100,
+    "type": "SWAP",
+    "tokenTransfers": [
+      {"mint": "MINT_X", "tokenAmount": 2000, "fromUserAccount": "DEX_POOL", "toUserAccount": "BUYER_B"}
+    ],
+    "nativeTransfers": []
+  },
+  {
+    "signature": "sig_3_dup_buyer",
+    "timestamp": 1716000200,
+    "type": "SWAP",
+    "tokenTransfers": [
+      {"mint": "MINT_X", "tokenAmount": 500, "fromUserAccount": "DEX_POOL", "toUserAccount": "BUYER_A"}
+    ],
+    "nativeTransfers": []
+  },
+  {
+    "signature": "sig_4_not_mint_x",
+    "timestamp": 1716000300,
+    "type": "SWAP",
+    "tokenTransfers": [
+      {"mint": "DIFFERENT_MINT", "tokenAmount": 1, "fromUserAccount": "DEX_POOL", "toUserAccount": "RANDO"}
+    ],
+    "nativeTransfers": []
+  },
+  {
+    "signature": "sig_5",
+    "timestamp": 1716000400,
+    "type": "SWAP",
+    "tokenTransfers": [
+      {"mint": "MINT_X", "tokenAmount": 750, "fromUserAccount": "DEX_POOL", "toUserAccount": "BUYER_C"}
+    ],
+    "nativeTransfers": []
+  }
+]

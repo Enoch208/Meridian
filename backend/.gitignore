@@ -13,8 +13,9 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 
-# Runtime data (track record + caches)
-data/
+# Runtime data (track record + caches) — ignore everything except templates
+data/*
+!data/*.example.json
 
 # Swarms framework scratch dir
 agent_workspace/
