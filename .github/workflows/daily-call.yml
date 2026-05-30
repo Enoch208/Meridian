@@ -1,0 +1,96 @@
+name: Daily call
+
+# Triggers the Meridian backend's /api/run endpoint so the swarm scans today's
+# Solana launches and appends fresh picks to the public track record. Runs once
+# a day (13:00 UTC ≈ pre-NY open) and can be fired manually from the Actions
+# tab via "Run workflow".
+#
+# Setup (one time):
+#   GitHub repo → Settings → Secrets and variables → Actions
+#     - Secret:   MERIDIAN_RUN_SECRET  = <same value as Render env var>
+#     - Variable: MERIDIAN_API_URL     = https://meridian-backend-qae0.onrender.com
+#       (falls back to the hardcoded URL below if unset)
+
+on:
+  schedule:
+    - cron: "0 13 * * *"   # daily 13:00 UTC
+  workflow_dispatch:        # manual trigger from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meridian-daily-call
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Run the scout swarm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: ${{ vars.MERIDIAN_API_URL || 'https://meridian-backend-qae0.onrender.com' }}
+      RUN_SECRET: ${{ secrets.MERIDIAN_RUN_SECRET }}
+    steps:
+      - name: Sanity-check the secret is configured
+        run: |
+          if [ -z "$RUN_SECRET" ]; then
+            echo "::error::MERIDIAN_RUN_SECRET is not set in repo secrets"
+            exit 1
+          fi
+
+      - name: Record current generated_at (so we can confirm it bumps)
+        id: before
+        run: |
+          set -euo pipefail
+          before=$(curl -fsSL "$API_URL/api/daily-shortlist" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('generated_at',''))")
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "Current generated_at: $before"
+
+      - name: POST /api/run (queue a fresh swarm run)
+        run: |
+          set -euo pipefail
+          http=$(curl -sS -o /tmp/run.json -w "%{http_code}" -X POST \
+            -H "x-run-secret: $RUN_SECRET" \
+            "$API_URL/api/run")
+          echo "HTTP $http"
+          cat /tmp/run.json
+          test "$http" = "200"
+
+      - name: Poll until generated_at bumps (max 5 min)
+        run: |
+          set -euo pipefail
+          before="${{ steps.before.outputs.before }}"
+          for i in $(seq 1 60); do
+            sleep 5
+            now=$(curl -fsSL "$API_URL/api/daily-shortlist" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin).get('generated_at',''))")
+            if [ -n "$now" ] && [ "$now" != "$before" ]; then
+              echo "::notice::Fresh swarm output after $((i*5))s — generated_at=$now"
+              exit 0
+            fi
+            printf "  +%ds still %s\n" $((i*5)) "$now"
+          done
+          echo "::warning::generated_at did not change within 5 min — Render may be cold-starting or the swarm failed silently"
+          exit 1
+
+      - name: Log today's picks (for the run summary)
+        if: always()
+        run: |
+          set -euo pipefail
+          curl -fsSL "$API_URL/api/daily-shortlist" | python3 - <<'PY'
+          import json, sys
+          d = json.load(sys.stdin)
+          print(f"generated_at: {d.get('generated_at')}")
+          print(f"as_of_date  : {d.get('as_of_date')}")
+          for p in d.get("picks", []):
+              t = p["token"]
+              print(f"  #{p['rank']} ${t['symbol']:8} {p['composite_score']:>3} :: {p['one_line_read']}")
+          PY
+
+      - name: Track-record summary
+        if: always()
+        run: |
+          curl -fsSL "$API_URL/api/track-record" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['summary'])"
