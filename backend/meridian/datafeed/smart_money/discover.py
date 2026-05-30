@@ -12,6 +12,7 @@ The *quality* of the watchlist is determined here. The rule is:
 """
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
@@ -37,9 +38,14 @@ def discover_wallets(
     helius_per_token_limit: int = 30,
     birdeye_per_token_limit: int = 10,
     min_appearances: int = 2,
+    birdeye_throttle_s: float = 1.1,   # Birdeye Standard tier = 1 RPS
+    helius_throttle_s: float = 0.15,   # Helius free is generous; mild pace anyway
     client: Optional[httpx.Client] = None,
 ) -> list[SmartMoneyWallet]:
-    """End-to-end pass: pull observations from configured sources, aggregate, score."""
+    """End-to-end pass: pull observations from configured sources, aggregate, score.
+
+    Throttles between calls so the Birdeye free tier (1 RPS) doesn't 429.
+    """
     c = client or httpx.Client(timeout=30)
     observations: list[WalletObservation] = []
     if curated_path:
@@ -51,12 +57,16 @@ def discover_wallets(
                     mint, api_key=helius_key, limit=helius_per_token_limit, client=c
                 )
             )
+            if helius_throttle_s > 0:
+                time.sleep(helius_throttle_s)
         if birdeye_key:
             observations.extend(
                 birdeye.fetch_top_traders(
                     mint, api_key=birdeye_key, limit=birdeye_per_token_limit, client=c
                 )
             )
+            if birdeye_throttle_s > 0:
+                time.sleep(birdeye_throttle_s)
     return aggregate(observations, min_appearances=min_appearances)
 
 

@@ -54,6 +54,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=10,
         help="how many top traders to pull per winning mint from Birdeye",
     )
+    ap.add_argument(
+        "--birdeye-throttle-s",
+        type=float,
+        default=1.1,
+        help="seconds to wait between Birdeye calls (Standard tier = 1 RPS)",
+    )
     args = ap.parse_args(argv)
 
     settings = get_settings()
@@ -76,6 +82,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         curated_path=args.curated,
         helius_per_token_limit=args.helius_per_token,
         birdeye_per_token_limit=args.birdeye_per_token,
+        birdeye_throttle_s=args.birdeye_throttle_s,
         min_appearances=args.min_appearances,
     )
 
