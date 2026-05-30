@@ -79,14 +79,17 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          curl -fsSL "$API_URL/api/daily-shortlist" | python3 - <<'PY'
-          import json, sys
-          d = json.load(sys.stdin)
+          curl -fsSL "$API_URL/api/daily-shortlist" -o /tmp/shortlist.json
+          python3 <<'PY'
+          import json
+          d = json.load(open("/tmp/shortlist.json"))
           print(f"generated_at: {d.get('generated_at')}")
           print(f"as_of_date  : {d.get('as_of_date')}")
           for p in d.get("picks", []):
               t = p["token"]
-              print(f"  #{p['rank']} ${t['symbol']:8} {p['composite_score']:>3} :: {p['one_line_read']}")
+              sm = p["scores"].get("smart_money")
+              sm_str = f"smart_money={sm}" if sm is not None else "smart_money=—"
+              print(f"  #{p['rank']} ${t['symbol']:8} composite={p['composite_score']:>3}  {sm_str}  :: {p['one_line_read']}")
           PY
 
       - name: Track-record summary
