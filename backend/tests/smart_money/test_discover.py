@@ -42,10 +42,17 @@ def test_curated_wallets_pass_even_with_no_token_context():
 
 
 def test_excluded_addresses_are_dropped():
-    obs = [
-        _obs("11111111111111111111111111111111", "MINT_A", rank=1),
-        _obs("11111111111111111111111111111111", "MINT_B", rank=1),
+    """System, DEX programs, burn sinks, wrapped SOL should never make the list."""
+    excluded = [
+        "11111111111111111111111111111111",         # System program
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token program
+        "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",  # Raydium AMM
+        "So11111111111111111111111111111111111111112",   # Wrapped SOL mint
     ]
+    obs = []
+    for addr in excluded:
+        obs.append(_obs(addr, "MINT_A", rank=1))
+        obs.append(_obs(addr, "MINT_B", rank=2))
     assert aggregate(obs) == []
 
 

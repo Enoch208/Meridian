@@ -24,3 +24,24 @@ def test_parse_buyers_handles_garbage_input():
     assert parse_buyers_from_swaps([], mint="MINT_X") == []
     assert parse_buyers_from_swaps("not a list", mint="MINT_X") == []  # type: ignore[arg-type]
     assert parse_buyers_from_swaps([{"tokenTransfers": []}], mint="MINT_X") == []
+
+
+def test_parse_buyers_sorts_by_timestamp_defensively():
+    """Even if the API returns rows out of order, rank=1 is the earliest by clock."""
+    out_of_order = [
+        {"timestamp": 300, "tokenTransfers": [{"mint": "M", "toUserAccount": "LATE"}]},
+        {"timestamp": 100, "tokenTransfers": [{"mint": "M", "toUserAccount": "EARLY"}]},
+        {"timestamp": 200, "tokenTransfers": [{"mint": "M", "toUserAccount": "MID"}]},
+    ]
+    obs = parse_buyers_from_swaps(out_of_order, mint="M")
+    assert [o.address for o in obs] == ["EARLY", "MID", "LATE"]
+    assert [o.rank for o in obs] == [1, 2, 3]
+
+
+def test_parse_buyers_drops_burn_and_system_recipients():
+    txns = [
+        {"timestamp": 1, "tokenTransfers": [{"mint": "M", "toUserAccount": "11111111111111111111111111111111"}]},
+        {"timestamp": 2, "tokenTransfers": [{"mint": "M", "toUserAccount": "REAL_BUYER"}]},
+    ]
+    obs = parse_buyers_from_swaps(txns, mint="M")
+    assert [o.address for o in obs] == ["REAL_BUYER"]

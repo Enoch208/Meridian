@@ -16,9 +16,12 @@ bogus observations.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from .models import WalletObservation
+
+log = logging.getLogger(__name__)
 
 
 def load_curated(path: str) -> list[WalletObservation]:
@@ -27,10 +30,17 @@ def load_curated(path: str) -> list[WalletObservation]:
         return []
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
+    except json.JSONDecodeError as e:
+        log.warning("curated file %s is not valid JSON: %s", path, e)
+        return []
+    except OSError as e:
+        log.warning("could not read curated file %s: %s", path, e)
+        return []
+    wallets = data.get("wallets") if isinstance(data, dict) else None
+    if not isinstance(wallets, list):
         return []
     out: list[WalletObservation] = []
-    for w in data.get("wallets", []) or []:
+    for w in wallets:
         if not isinstance(w, dict):
             continue
         addr = (w.get("address") or "").strip()

@@ -12,6 +12,7 @@ The *quality* of the watchlist is determined here. The rule is:
 """
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -22,11 +23,22 @@ import httpx
 from . import birdeye, curated, helius
 from .models import SmartMoneyWallet, WalletObservation
 
-# Addresses we always strip: DEX program accounts, well-known router PDAs,
-# the system burn address. Add to this set as bot patterns surface.
-EXCLUDED_ADDRESSES: set[str] = {
-    "11111111111111111111111111111111",  # System program / null sink
-}
+log = logging.getLogger(__name__)
+
+# Addresses we always strip from results — system accounts, well-known program
+# IDs, common burn sinks, and the wrapped-SOL mint. These should never appear
+# as a "buyer" in a real swap, but defending against parser surprises is cheap.
+EXCLUDED_ADDRESSES: frozenset[str] = frozenset({
+    "11111111111111111111111111111111",                    # System program
+    "1nc1nerator11111111111111111111111111111111",         # Solana burn
+    "So11111111111111111111111111111111111111112",         # Wrapped SOL mint
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",         # SPL Token program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",        # SPL Associated Token
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",        # Raydium AMM v4
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",         # Jupiter v6 program
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",         # Orca Whirlpool
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",         # Pump.fun program
+})
 
 
 def discover_wallets(
@@ -44,30 +56,40 @@ def discover_wallets(
 ) -> list[SmartMoneyWallet]:
     """End-to-end pass: pull observations from configured sources, aggregate, score.
 
-    Throttles between calls so the Birdeye free tier (1 RPS) doesn't 429.
+    Throttles between calls so the Birdeye free tier (1 RPS) doesn't 429. If
+    no httpx client is passed in, we create one and close it cleanly on exit.
     """
+    owns_client = client is None
     c = client or httpx.Client(timeout=30)
-    observations: list[WalletObservation] = []
-    if curated_path:
-        observations.extend(curated.load_curated(curated_path))
-    for mint in winner_mints:
-        if helius_key:
-            observations.extend(
-                helius.fetch_earliest_buyers(
-                    mint, api_key=helius_key, limit=helius_per_token_limit, client=c
+    try:
+        observations: list[WalletObservation] = []
+        if curated_path:
+            observations.extend(curated.load_curated(curated_path))
+        for mint in winner_mints:
+            if helius_key:
+                observations.extend(
+                    helius.fetch_earliest_buyers(
+                        mint, api_key=helius_key, limit=helius_per_token_limit, client=c
+                    )
                 )
-            )
-            if helius_throttle_s > 0:
-                time.sleep(helius_throttle_s)
-        if birdeye_key:
-            observations.extend(
-                birdeye.fetch_top_traders(
-                    mint, api_key=birdeye_key, limit=birdeye_per_token_limit, client=c
+                if helius_throttle_s > 0:
+                    time.sleep(helius_throttle_s)
+            if birdeye_key:
+                observations.extend(
+                    birdeye.fetch_top_traders(
+                        mint, api_key=birdeye_key, limit=birdeye_per_token_limit, client=c
+                    )
                 )
-            )
-            if birdeye_throttle_s > 0:
-                time.sleep(birdeye_throttle_s)
-    return aggregate(observations, min_appearances=min_appearances)
+                if birdeye_throttle_s > 0:
+                    time.sleep(birdeye_throttle_s)
+        log.info(
+            "smart-money discovery: %d observations across %d tokens",
+            len(observations), len(winner_mints),
+        )
+        return aggregate(observations, min_appearances=min_appearances)
+    finally:
+        if owns_client:
+            c.close()
 
 
 def aggregate(

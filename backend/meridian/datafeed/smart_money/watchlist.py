@@ -8,14 +8,16 @@ even after a recompute.
 from __future__ import annotations
 
 import json
+import logging
 import pathlib
 from dataclasses import asdict, fields
 from datetime import datetime, timezone
-from typing import Optional
 
 from meridian.config import get_settings
 
 from .models import SmartMoneyWallet
+
+log = logging.getLogger(__name__)
 
 WATCHLIST_FILE = "smart_money_wallets.json"
 COLLECTION = "smart_money_wallets"
@@ -58,7 +60,8 @@ def _load_file(data_dir: str) -> list[SmartMoneyWallet]:
         return []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as e:
+        log.warning("watchlist file %s unreadable: %s", path, e)
         return []
     return [_to_wallet(row) for row in data.get("wallets", []) if isinstance(row, dict)]
 
@@ -96,15 +99,24 @@ def _upsert(
 
 
 def _save_mongo(wallets: list[SmartMoneyWallet]) -> None:
+    """Bulk-upsert wallets in a single round trip; also ensure the address
+    index exists so scout lookups (next step) are O(1)."""
+    from pymongo import UpdateOne
+
     from meridian.trackrecord.store import _mongo_db  # reuse cached client
 
     db = _mongo_db()
     if db is None:
         return
     coll = db[COLLECTION]
+    # Idempotent — create_index returns the existing index name if already present.
+    coll.create_index("address", unique=True, background=True)
+
+    if not wallets:
+        return
     now = datetime.now(timezone.utc).isoformat()
-    for w in wallets:
-        coll.update_one(
+    ops = [
+        UpdateOne(
             {"address": w.address},
             {
                 "$set": {
@@ -122,6 +134,9 @@ def _save_mongo(wallets: list[SmartMoneyWallet]) -> None:
             },
             upsert=True,
         )
+        for w in wallets
+    ]
+    coll.bulk_write(ops, ordered=False)
 
 
 def _load_mongo() -> list[SmartMoneyWallet]:
