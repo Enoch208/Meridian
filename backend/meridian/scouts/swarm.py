@@ -118,11 +118,23 @@ def parse_lead_json(text: str, candidates: list[Candidate]) -> list[Pick]:
 class MockScoutSwarm:
     """Deterministic, honesty-aware ranking — for tests, demos, and the
     on-demand /api/evaluate path. Missing signals score Unknown (None) and are
-    excluded from the composite (never invented as 0). Ranks by liquidity."""
+    excluded from the composite (never invented as 0). Ranks by liquidity.
+
+    If a ``smart_money_scorer`` is supplied (see ``meridian.scouts.smart_money``)
+    each candidate's ``smart_money`` sub-score is populated deterministically
+    from the watchlist; otherwise it stays Unknown — same honest semantics.
+    """
+
+    def __init__(self, smart_money_scorer=None):
+        # Signature: (Candidate) -> (Optional[int] score, list[str] reasons, list[str] unknowns)
+        self.smart_money_scorer = smart_money_scorer
 
     def rank(self, candidates: list[Candidate]) -> list[Pick]:
         ranked = sorted(candidates, key=lambda c: (c.liquidity_usd or 0), reverse=True)[:3]
-        return [_score_candidate(c, i) for i, c in enumerate(ranked, start=1)]
+        return [
+            _score_candidate(c, i, smart_money_scorer=self.smart_money_scorer)
+            for i, c in enumerate(ranked, start=1)
+        ]
 
 
 def _scale(value: Optional[float], cap: float) -> int:
@@ -131,7 +143,7 @@ def _scale(value: Optional[float], cap: float) -> int:
     return max(0, min(100, int(round(value / cap * 100))))
 
 
-def _score_candidate(c: Candidate, rank: int) -> Pick:
+def _score_candidate(c: Candidate, rank: int, *, smart_money_scorer=None) -> Pick:
     """Score one candidate honestly: verifiable signals get a 0–100 score,
     unverifiable ones are Unknown (None) and excluded from the composite."""
     reasons: list[str] = []
@@ -190,9 +202,20 @@ def _score_candidate(c: Candidate, rank: int) -> Pick:
         elif vol:
             reasons.append(f"${vol:,.0f} 24h volume")
 
-    unknowns.append("smart_money")  # dedicated scout ships in v1.5
+    # Smart-money — real deterministic score when a watchlist + Helius key are
+    # configured; otherwise Unknown (no invention).
+    smart_money: Optional[int] = None
+    if smart_money_scorer is not None:
+        try:
+            smart_money, sm_reasons, sm_unknowns = smart_money_scorer(c)
+        except Exception:  # pragma: no cover - defensive
+            smart_money, sm_reasons, sm_unknowns = None, [], ["smart_money"]
+        reasons.extend(sm_reasons)
+        unknowns.extend(sm_unknowns)
+    else:
+        unknowns.append("smart_money")
 
-    available = [s for s in (onchain, liquidity, momentum) if s is not None]
+    available = [s for s in (onchain, liquidity, momentum, smart_money) if s is not None]
     composite = int(round(sum(available) / len(available))) if available else 0
     # Absence of evidence is a mild negative: unverified liquidity caps the
     # score so it can never read as "clean" without it.
@@ -225,7 +248,7 @@ def _score_candidate(c: Candidate, rank: int) -> Pick:
             "onchain": onchain,
             "liquidity": liquidity,
             "momentum": momentum,
-            "smart_money": None,
+            "smart_money": smart_money,
         },
         top_reasons=reasons[:2] or ["Limited data available"],
         standout_risk=risk,
@@ -261,12 +284,16 @@ class SwarmsScoutSwarm:
     """
 
     def __init__(self, model: Optional[str] = None, api_key: Optional[str] = None,
-                 base_url: str = SWARMS_API_BASE):
+                 base_url: str = SWARMS_API_BASE, smart_money_scorer=None):
         from meridian.config import get_settings
         s = get_settings()
         self.model = model or s.model
         self.api_key = api_key or s.swarms_api_key
         self.base_url = base_url.rstrip("/")
+        # Optional smart-money scorer (Callable[[Candidate], (score, reasons, unknowns)]).
+        # When set, we override the LLM's smart_money values with deterministic
+        # ones — the lead does composite/narrative, the watchlist does signal.
+        self.smart_money_scorer = smart_money_scorer
 
     def _spec(self, candidates: list[Candidate]) -> dict:
         from meridian.scouts.prompts import SCOUT_PROMPTS, LEAD_PROMPT
@@ -307,4 +334,39 @@ class SwarmsScoutSwarm:
             raise
         except Exception as e:
             raise SwarmError(f"swarm API call failed: {e}") from e
-        return parse_lead_json(_output_text(body.get("output")), candidates)
+        picks = parse_lead_json(_output_text(body.get("output")), candidates)
+        if self.smart_money_scorer is not None:
+            _apply_smart_money(picks, self.smart_money_scorer)
+        return picks
+
+
+def _apply_smart_money(picks: list[Pick], scorer) -> None:
+    """Overlay deterministic smart-money scores on the LLM's output.
+
+    The lead synthesizes the narrative; the watchlist owns the smart-money
+    signal. Pick.scores['smart_money'] gets replaced (or kept None on
+    Unknown), the 'smart_money' entry is removed from ``unknowns`` when the
+    score is real, and any new reasons are appended (capped so we don't
+    bloat the card).
+    """
+    for p in picks:
+        try:
+            score, reasons, unknowns = scorer(p.candidate)
+        except Exception:  # pragma: no cover - defensive
+            continue
+        p.scores["smart_money"] = score
+        if score is not None:
+            p.unknowns = [u for u in p.unknowns if u != "smart_money"]
+        else:
+            if "smart_money" not in p.unknowns:
+                p.unknowns = [*p.unknowns, "smart_money"]
+        if reasons:
+            existing = set(p.top_reasons)
+            for r in reasons:
+                if r not in existing and len(p.top_reasons) < 4:
+                    p.top_reasons.append(r)
+                    existing.add(r)
+        # Refresh the composite to reflect the new sub-score.
+        available = [v for v in p.scores.values() if isinstance(v, int)]
+        if available:
+            p.composite_score = int(round(sum(available) / len(available)))

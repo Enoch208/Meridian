@@ -95,6 +95,28 @@ def build_shortlist_dict(picks: list[Pick], now: datetime) -> dict:
     return resp.model_dump()
 
 
+def _build_smart_money_scorer(data_dir: str):
+    """Read the watchlist + Helius key and return a per-candidate scorer.
+
+    Returns ``None`` when either is missing — in which case the swarm leaves
+    smart_money as Unknown (the honest path).
+    """
+    import os
+
+    helius_key = os.getenv("HELIUS_API_KEY", "").strip() or None
+    if not helius_key:
+        return None
+    try:
+        from meridian.datafeed.smart_money.watchlist import load_watchlist
+        from meridian.scouts.smart_money import make_scorer
+        watchlist = load_watchlist(data_dir)
+    except Exception:
+        return None
+    if not watchlist:
+        return None
+    return make_scorer(watchlist, helius_key=helius_key)
+
+
 def main(argv: list[str] | None = None) -> list[Pick]:
     ap = argparse.ArgumentParser(prog="meridian.run")
     ap.add_argument("--live", action="store_true", help="use the real Swarms swarm (spends credit)")
@@ -104,11 +126,15 @@ def main(argv: list[str] | None = None) -> list[Pick]:
 
     settings = get_settings()
 
+    # Build the smart-money scorer when a watchlist + Helius key are both
+    # configured. Honest fallback: no scorer = picks keep smart_money=null.
+    smart_money_scorer = _build_smart_money_scorer(settings.data_dir)
+
     if args.live:
         from meridian.scouts.swarm import SwarmsScoutSwarm
-        swarm = SwarmsScoutSwarm()
+        swarm = SwarmsScoutSwarm(smart_money_scorer=smart_money_scorer)
     else:
-        swarm = MockScoutSwarm()
+        swarm = MockScoutSwarm(smart_money_scorer=smart_money_scorer)
 
     fetch = (lambda: _demo_candidates()) if args.demo else None
     enrich = (lambda cs, url: cs) if args.demo else None

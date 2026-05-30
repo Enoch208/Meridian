@@ -131,7 +131,7 @@ const structuredData = {
       },
       featureList: [
         "Continuous scan of new Solana launches",
-        "Three live specialized scout agents (smart-money scout in v1.5)",
+        "Four live specialized scout agents — on-chain, liquidity, momentum, smart-money",
         "Transparent composite scoring rubric",
         "Daily ranked shortlist of tokens worth investigating",
         "Public, running track record of every call",

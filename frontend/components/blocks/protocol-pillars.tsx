@@ -15,10 +15,10 @@ const PILLARS = [
     eyebrow: "Pillar I",
     title: "The Scout Swarm",
     description:
-      "Three live signal scouts read every new launch, each grading the one signal it owns. A lead agent synthesizes them into a single composite score against a transparent, fixed rubric. A smart-money scout joins in v1.5.",
+      "Four live signal scouts read every new launch — on-chain authorities, liquidity depth, momentum, and a smart-money overlay against a curated whale watchlist. A lead agent synthesizes them into a single composite score against a transparent, fixed rubric.",
     icon: <AiBrain01Icon className="size-5" strokeWidth={1.5} />,
     bullets: [
-      "Three live scouts plus a ranking lead (v1 shipped)",
+      "Four live scouts plus a ranking lead",
       "One transparent rubric, applied to every token",
       "Unverifiable signals down-weighted, never invented",
       "Framed 'worth investigating' — never 'buy'",

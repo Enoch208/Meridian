@@ -28,6 +28,8 @@ from meridian.api.schemas import (
     RunResponse,
     TrackRecordResponse,
     TrackRecordSummary,
+    WatchlistResponse,
+    WatchlistWallet,
 )
 from meridian.trackrecord.store import load_calls, derive_scorecard
 
@@ -267,6 +269,52 @@ def create_app() -> FastAPI:
 
         background_tasks.add_task(_run_smart_money_refresh)
         return RunResponse(status="queued")
+
+    # ------------------------------------------------------------------
+    # GET /api/smart-money/watchlist
+    # ------------------------------------------------------------------
+
+    @app.get(
+        "/api/smart-money/watchlist",
+        response_model=WatchlistResponse,
+        tags=["Public"],
+        summary="The current smart-money watchlist",
+    )
+    def smart_money_watchlist(limit: int = 50, min_score: float = 0) -> WatchlistResponse:
+        """Read the smart-money wallet watchlist (no auth required).
+
+        Reads from MongoDB when ``MONGODB_URI`` is configured, otherwise from
+        the local JSON file. Returns an empty list (200, ``count: 0``) when
+        the discovery pass has not run yet — never errors.
+        """
+        from meridian.config import get_settings
+        from meridian.datafeed.smart_money.watchlist import load_watchlist
+
+        settings = get_settings()
+        try:
+            wallets = load_watchlist(settings.data_dir)
+        except Exception:
+            wallets = []
+        filtered = [w for w in wallets if w.score >= min_score][: max(1, min(limit, 200))]
+        return WatchlistResponse(
+            updated_at=filtered[0].last_seen if filtered else None,
+            count=len(filtered),
+            wallets=[
+                WatchlistWallet(
+                    address=w.address,
+                    score=w.score,
+                    label=w.label,
+                    sources=w.sources,
+                    winners_caught=w.winners_caught,
+                    avg_entry_rank=w.avg_entry_rank,
+                    cumulative_pnl_usd=w.cumulative_pnl_usd,
+                    is_curated=w.is_curated,
+                    first_seen=w.first_seen,
+                    last_seen=w.last_seen,
+                )
+                for w in filtered
+            ],
+        )
 
     # ------------------------------------------------------------------
     # POST /api/evaluate  (on-demand single-token scoring)

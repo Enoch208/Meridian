@@ -43,7 +43,8 @@ START_TEXT = (
     "every call.\n\n"
     "/picks — today's ranked shortlist\n"
     "/track — the public track record (wins &amp; misses)\n"
-    "/check &lt;address&gt; — score any Solana token\n\n"
+    "/check &lt;address&gt; — score any Solana token\n"
+    "/smart_money — wallets that consistently get in early on winners\n\n"
     f"<i>{DISCLAIMER}</i>"
 )
 
@@ -86,6 +87,33 @@ def format_picks(data: dict) -> str:
             lines.append(f"  <i>{_esc(read)}</i>")
         lines.append("")
     lines.append(f"<i>{DISCLAIMER}</i>")
+    return "\n".join(lines).strip()
+
+
+def format_smart_money(data: dict) -> str:
+    """Render the smart-money watchlist payload as an HTML Telegram message."""
+    wallets = data.get("wallets") or []
+    if not wallets:
+        return (
+            "Smart-money watchlist is empty so far — the discovery pass hasn't "
+            "run, or no wallet has cleared the quality gate yet."
+        )
+    lines = ["🐋 <b>Smart-money watchlist</b> · top 10 by score", ""]
+    for w in wallets[:10]:
+        addr = w.get("address", "")
+        short = f"{addr[:6]}…{addr[-4:]}" if len(addr) > 12 else addr
+        label = w.get("label") or ("curated" if w.get("is_curated") else "discovered")
+        score = _fmt_score(w.get("score"))
+        winners = w.get("winners_caught", 0)
+        rank = w.get("avg_entry_rank")
+        rank_s = f" · rank ≈{rank:.1f}" if isinstance(rank, (int, float)) else ""
+        lines.append(
+            f"<b>{score}</b>  <code>{_esc(short)}</code> · {_esc(label)} · "
+            f"{_esc(winners)} winner{'s' if winners != 1 else ''}{rank_s}"
+        )
+    total = data.get("count", len(wallets))
+    lines.append("")
+    lines.append(f"<i>{_esc(total)} wallets tracked · scores update weekly.</i>")
     return "\n".join(lines).strip()
 
 
@@ -308,6 +336,13 @@ def handle(text: str, chat_id: int) -> None:
             _reply(chat_id, "🛰 Scanning today's launches…", "/api/daily-shortlist", format_picks)
         elif cmd == "/track":
             _reply(chat_id, "📊 Pulling the track record…", "/api/track-record", format_track)
+        elif cmd in ("/smart_money", "/smartmoney"):
+            _reply(
+                chat_id,
+                "🐋 Pulling the smart-money watchlist…",
+                "/api/smart-money/watchlist?limit=10",
+                format_smart_money,
+            )
         elif cmd == "/check":
             parts = text.strip().split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():

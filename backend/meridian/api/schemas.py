@@ -115,6 +115,30 @@ class TrackRecordResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# /api/smart-money/watchlist
+# ---------------------------------------------------------------------------
+
+
+class WatchlistWallet(BaseModel):
+    address: str
+    score: float
+    label: Optional[str] = None
+    sources: list[str] = []
+    winners_caught: int = 0
+    avg_entry_rank: Optional[float] = None
+    cumulative_pnl_usd: Optional[float] = None
+    is_curated: bool = False
+    first_seen: str = ""
+    last_seen: str = ""
+
+
+class WatchlistResponse(BaseModel):
+    updated_at: Optional[str] = None
+    count: int = 0
+    wallets: list[WatchlistWallet] = []
+
+
+# ---------------------------------------------------------------------------
 # /api/evaluate  (on-demand single-token scoring)
 # ---------------------------------------------------------------------------
 

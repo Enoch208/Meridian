@@ -48,13 +48,12 @@ const SCOUTS = [
   {
     title: "Smart-money scout",
     description:
-      "Will track notable and clustered wallet entries — the 'who's already in' signal. The lead then synthesizes all scouts into the ranked call.",
+      "Overlays a curated whale watchlist on every candidate — distinct watchlist wallets that bought early raise the smart-money sub-score. The lead synthesizes all four into the ranked call.",
     icon: <Group01Icon className="size-5" strokeWidth={1.5} />,
-    badge: "v1.5",
     examples: [
-      "Known wallet entry — planned",
-      "Clustered buy detection — planned",
-      "Top-trader early entry — planned",
+      "Curated wallets cross-validated",
+      "Early-buyer overlap detected",
+      "Watchlist refreshes weekly",
     ],
   },
 ];
@@ -86,7 +85,7 @@ export function UseCasesGrid() {
             transition={{ type: "spring", stiffness: 300, damping: 35, delay: 0.08 }}
             className="font-heading mx-auto mt-4 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl"
           >
-            Three live scouts.
+            Four live scouts.
             <br />
             <span className="bg-gradient-to-r from-sky-300 via-violet-400 to-violet-600 bg-clip-text text-transparent">
               One ranked call.
@@ -100,8 +99,8 @@ export function UseCasesGrid() {
             className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground"
           >
             Each scout watches a single signal and grades only what it can
-            verify. A lead agent weighs the three live scouts and ranks the day&apos;s finds —
-            multi-agent depth pointed at discovery, not judgment. A fourth smart-money scout arrives in v1.5.
+            verify. A lead agent weighs the four live scouts and ranks the day&apos;s finds —
+            multi-agent depth pointed at discovery, not judgment.
           </motion.p>
         </div>
 

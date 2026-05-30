@@ -98,7 +98,7 @@ function StateScore() {
     { label: "On-chain", value: "PASS · mint revoked", color: "text-emerald-300" },
     { label: "Liquidity", value: "PASS · LP 100% locked", color: "text-emerald-300" },
     { label: "Momentum", value: "↑ buy/sell 3.2x · slope+", color: "text-violet-300" },
-    { label: "Smart-money", value: "v1.5 · not yet active", color: "text-zinc-600" },
+    { label: "Smart-money", value: "watchlist overlay · 2 hits", color: "text-emerald-300" },
   ];
 
   return (

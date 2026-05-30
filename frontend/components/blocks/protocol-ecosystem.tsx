@@ -141,8 +141,9 @@ export function ProtocolEcosystem() {
                     </span>
                   </div>
                   <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    Three live specialists watch one signal each; a lead synthesizes
-                    them into the day&apos;s ranked shortlist. Smart-money scout in v1.5.
+                    Four live specialists watch one signal each; a lead synthesizes
+                    them into the day&apos;s ranked shortlist. Smart-money overlays a
+                    curated whale watchlist on every pick.
                   </p>
                 </div>
                 <div className="mt-6 flex -space-x-3">
@@ -164,9 +165,8 @@ export function ProtocolEcosystem() {
                     },
                     {
                       src: "/brand/avatars/ninja.png",
-                      alt: "Smart-money scout (v1.5)",
+                      alt: "Smart-money scout",
                       bg: "from-violet-700 to-[#1E0A3C]",
-                      roadmap: true,
                     },
                   ].map((avatar, i) => (
                     <div

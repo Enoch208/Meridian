@@ -64,9 +64,9 @@ function authorityFlag(value: string | null | undefined): { text: string; tone: 
   return { text: "live ⚠", tone: "text-amber-300" };
 }
 
-/* ── Scout chips (3 live scouts + smart-money as v1.5) ───────────── */
+/* ── Scout chips (four live scouts, scored from the backend) ───────── */
 
-type ScoutVisual = "strong" | "ok" | "weak" | "unknown" | "soon";
+type ScoutVisual = "strong" | "ok" | "weak" | "unknown";
 
 const SCOUT_META = [
   { key: "onchain", label: "On-chain", icon: ShieldBlockchainIcon },
@@ -80,11 +80,9 @@ const SCOUT_PALETTE: Record<ScoutVisual, { dot: string; text: string }> = {
   ok: { dot: "bg-violet-400", text: "text-violet-300" },
   weak: { dot: "bg-amber-400", text: "text-amber-300" },
   unknown: { dot: "bg-zinc-500", text: "text-zinc-400" },
-  soon: { dot: "bg-zinc-600", text: "text-zinc-500" },
 };
 
-function scoutVisual(key: string, score: number | null): ScoutVisual {
-  if (key === "smart_money") return "soon"; // honest: not shipped in v1
+function scoutVisual(score: number | null): ScoutVisual {
   if (score == null) return "unknown";
   if (score >= 75) return "strong";
   if (score >= 55) return "ok";
@@ -107,11 +105,7 @@ function ScoutChip({
       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
         {label}
       </span>
-      {visual === "soon" ? (
-        <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-zinc-600">v1.5</span>
-      ) : (
-        <span className={`size-1.5 rounded-full ${p.dot}`} />
-      )}
+      <span className={`size-1.5 rounded-full ${p.dot}`} />
     </span>
   );
 }
@@ -169,7 +163,7 @@ function PickCard({ pick, index }: { pick: ApiPick; index: number }) {
           <ScoutChip
             key={s.key}
             label={s.label}
-            visual={scoutVisual(s.key, pick.scores[s.key as keyof typeof pick.scores])}
+            visual={scoutVisual(pick.scores[s.key as keyof typeof pick.scores])}
             icon={s.icon}
           />
         ))}
