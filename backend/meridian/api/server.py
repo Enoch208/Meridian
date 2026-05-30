@@ -58,6 +58,27 @@ def _run_live_pipeline() -> None:
         log.exception("Live pipeline run failed")
 
 
+def _run_smart_money_refresh() -> None:
+    """Recompute the smart-money watchlist on the server.
+
+    Same shape as ``_run_live_pipeline`` — background task, deferred imports,
+    swallows exceptions into the logger. Writes to MongoDB when MONGODB_URI is
+    configured (the Render path); otherwise to ``<DATA_DIR>/smart_money_wallets.json``.
+    Reads HELIUS_API_KEY and BIRDEYE_API_KEY from the process env (set those
+    in Render's dashboard).
+    """
+    import logging
+
+    from meridian.datafeed.smart_money import refresh as sm_refresh
+
+    log = logging.getLogger("meridian.api")
+    try:
+        wallets = sm_refresh.run_refresh()
+        log.info("smart-money refresh wrote %d wallet(s)", len(wallets))
+    except Exception:  # pragma: no cover - defensive
+        log.exception("smart-money refresh failed")
+
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
@@ -211,6 +232,40 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=403, detail="Forbidden")
 
         background_tasks.add_task(_run_live_pipeline)
+        return RunResponse(status="queued")
+
+    # ------------------------------------------------------------------
+    # POST /api/smart-money/refresh  (protected)
+    # ------------------------------------------------------------------
+
+    @app.post(
+        "/api/smart-money/refresh",
+        response_model=RunResponse,
+        tags=["Admin"],
+        summary="Recompute the smart-money watchlist (gated by x-run-secret)",
+    )
+    def smart_money_refresh(
+        background_tasks: BackgroundTasks,
+        x_run_secret: str = Header(default="", alias="x-run-secret"),
+    ) -> RunResponse:
+        """Trigger a fresh smart-money discovery pass.
+
+        Queries the configured sources (Helius + Birdeye when their keys are
+        set in the server env), aggregates wallets that appear across multiple
+        recent winners, and upserts them into the watchlist (MongoDB if
+        ``MONGODB_URI`` is configured, otherwise a local JSON file).
+        Same auth + 403 semantics as ``POST /api/run`` — guarded by
+        ``x-run-secret``. Returns ``{"status": "queued"}`` immediately and
+        finishes the work in a background task (the swarm of API calls takes
+        ~20–60s).
+        """
+        from meridian.config import get_settings
+
+        settings = get_settings()
+        if not settings.run_secret or x_run_secret != settings.run_secret:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        background_tasks.add_task(_run_smart_money_refresh)
         return RunResponse(status="queued")
 
     # ------------------------------------------------------------------

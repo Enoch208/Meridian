@@ -1,0 +1,54 @@
+name: Smart-money refresh
+
+# Triggers the Meridian backend's /api/smart-money/refresh endpoint so the
+# watchlist of "wallets that consistently get into winners early" stays
+# current. Mirrors daily-call.yml — same secret, different endpoint.
+#
+# Weekly (Sunday 13:30 UTC) is the right cadence for our budgets:
+#   - Birdeye Standard 30k CU/mo, ~15 calls/run, ~10 CU/call -> 600 CU/mo
+#   - Helius free 100k req/mo, ~15 calls/run -> 60 req/mo
+# Manual dispatch (workflow_dispatch) lets you bootstrap or re-run on demand.
+
+on:
+  schedule:
+    - cron: "30 13 * * 0"   # Sundays 13:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meridian-smart-money-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh smart-money watchlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: ${{ vars.MERIDIAN_API_URL || 'https://meridian-backend-qae0.onrender.com' }}
+      RUN_SECRET: ${{ secrets.MERIDIAN_RUN_SECRET }}
+    steps:
+      - name: Sanity-check the secret is configured
+        run: |
+          if [ -z "$RUN_SECRET" ]; then
+            echo "::error::MERIDIAN_RUN_SECRET is not set in repo secrets"
+            exit 1
+          fi
+
+      - name: POST /api/smart-money/refresh
+        run: |
+          set -euo pipefail
+          http=$(curl -sS -o /tmp/run.json -w "%{http_code}" -X POST \
+            -H "x-run-secret: $RUN_SECRET" \
+            "$API_URL/api/smart-money/refresh")
+          echo "HTTP $http"
+          cat /tmp/run.json
+          test "$http" = "200"
+
+      - name: Note (verification)
+        run: |
+          echo "Watchlist persistence lives in MongoDB on the server."
+          echo "Inspect via your bot's /watchlist after running /sync_smart_money,"
+          echo "or query the smart_money_wallets collection directly."

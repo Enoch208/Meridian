@@ -16,11 +16,11 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Callable, Optional
 
 import httpx
 
-from . import birdeye, curated, helius
+from . import birdeye, cache, curated, helius
 from .models import SmartMoneyWallet, WalletObservation
 
 log = logging.getLogger(__name__)
@@ -52,12 +52,16 @@ def discover_wallets(
     min_appearances: int = 2,
     birdeye_throttle_s: float = 1.1,   # Birdeye Standard tier = 1 RPS
     helius_throttle_s: float = 0.15,   # Helius free is generous; mild pace anyway
+    cache_dir: Optional[str] = None,
+    cache_ttl_s: int = cache.DEFAULT_TTL_S,
     client: Optional[httpx.Client] = None,
 ) -> list[SmartMoneyWallet]:
     """End-to-end pass: pull observations from configured sources, aggregate, score.
 
     Throttles between calls so the Birdeye free tier (1 RPS) doesn't 429. If
-    no httpx client is passed in, we create one and close it cleanly on exit.
+    ``cache_dir`` is provided, per-(source, mint) responses are cached on
+    disk and reused within ``cache_ttl_s`` — so retries within an hour are
+    free. Cache hits skip the throttle sleep too.
     """
     owns_client = client is None
     c = client or httpx.Client(timeout=30)
@@ -65,23 +69,37 @@ def discover_wallets(
         observations: list[WalletObservation] = []
         if curated_path:
             observations.extend(curated.load_curated(curated_path))
+
         for mint in winner_mints:
             if helius_key:
                 observations.extend(
-                    helius.fetch_earliest_buyers(
-                        mint, api_key=helius_key, limit=helius_per_token_limit, client=c
+                    _cached_or_fetch(
+                        source="helius:earliest_buyers",
+                        key=mint,
+                        cache_dir=cache_dir,
+                        cache_ttl_s=cache_ttl_s,
+                        fetch=lambda: helius.fetch_earliest_buyers(
+                            mint, api_key=helius_key,
+                            limit=helius_per_token_limit, client=c,
+                        ),
+                        throttle_s=helius_throttle_s,
                     )
                 )
-                if helius_throttle_s > 0:
-                    time.sleep(helius_throttle_s)
             if birdeye_key:
                 observations.extend(
-                    birdeye.fetch_top_traders(
-                        mint, api_key=birdeye_key, limit=birdeye_per_token_limit, client=c
+                    _cached_or_fetch(
+                        source="birdeye:top_traders",
+                        key=mint,
+                        cache_dir=cache_dir,
+                        cache_ttl_s=cache_ttl_s,
+                        fetch=lambda: birdeye.fetch_top_traders(
+                            mint, api_key=birdeye_key,
+                            limit=birdeye_per_token_limit, client=c,
+                        ),
+                        throttle_s=birdeye_throttle_s,
                     )
                 )
-                if birdeye_throttle_s > 0:
-                    time.sleep(birdeye_throttle_s)
+
         log.info(
             "smart-money discovery: %d observations across %d tokens",
             len(observations), len(winner_mints),
@@ -90,6 +108,30 @@ def discover_wallets(
     finally:
         if owns_client:
             c.close()
+
+
+def _cached_or_fetch(
+    *,
+    source: str,
+    key: str,
+    cache_dir: Optional[str],
+    cache_ttl_s: int,
+    fetch: Callable[[], list[WalletObservation]],
+    throttle_s: float,
+) -> list[WalletObservation]:
+    """Read-through cache: serve from disk if fresh, else call ``fetch`` and
+    write the result. Cache hits skip the upstream throttle entirely."""
+    if cache_dir:
+        cached = cache.cached_observations(cache_dir, source, key, ttl_s=cache_ttl_s)
+        if cached is not None:
+            log.debug("cache hit %s/%s (%d rows)", source, key[:10], len(cached))
+            return cached
+    fresh = fetch()
+    if cache_dir and fresh:
+        cache.write_observations(cache_dir, source, key, fresh)
+    if throttle_s > 0:
+        time.sleep(throttle_s)
+    return fresh
 
 
 def aggregate(

@@ -1,7 +1,12 @@
-"""CLI: refresh the smart-money watchlist.
+"""Refresh the smart-money watchlist.
 
+CLI:
     python -m meridian.datafeed.smart_money.refresh
     python -m meridian.datafeed.smart_money.refresh --max-winners 15 -v
+
+Library:
+    from meridian.datafeed.smart_money.refresh import run_refresh
+    wallets = run_refresh()
 
 Reads HELIUS_API_KEY and BIRDEYE_API_KEY from the environment. If neither is
 set, only the curated source is loaded.
@@ -11,15 +16,30 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import pathlib
+from dataclasses import dataclass
 from typing import Optional
 
 import httpx
 
 from meridian.config import get_settings
 
-from . import discover, watchlist
+from . import cache, discover, watchlist
+from .models import SmartMoneyWallet
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RefreshOptions:
+    max_winners: int = 20
+    min_appearances: int = 2
+    helius_per_token_limit: int = 30
+    birdeye_per_token_limit: int = 10
+    birdeye_throttle_s: float = 1.1
+    helius_throttle_s: float = 0.15
+    cache_ttl_s: int = cache.DEFAULT_TTL_S
+    curated_path: Optional[str] = None     # default: <DATA_DIR>/smart_money_curated.json
 
 
 def _winners_from_dexscreener_trending(limit: int = 20) -> list[str]:
@@ -42,26 +62,59 @@ def _winners_from_dexscreener_trending(limit: int = 20) -> list[str]:
     ][:limit]
 
 
-def _default_curated_path(data_dir: str) -> str:
-    return os.path.join(data_dir, "smart_money_curated.json")
+def run_refresh(opts: RefreshOptions = RefreshOptions()) -> list[SmartMoneyWallet]:
+    """Library entrypoint — shared by the CLI and the /api/smart-money/refresh route.
+
+    Reads keys + Mongo config from env via ``get_settings``. Writes the result
+    to whichever backend ``save_watchlist`` selects (Mongo if ``MONGODB_URI``
+    is set, JSON file otherwise). Uses the on-disk cache to skip per-mint API
+    calls that have run in the last hour.
+    """
+    settings = get_settings()
+    helius_key = os.getenv("HELIUS_API_KEY", "").strip() or None
+    birdeye_key = os.getenv("BIRDEYE_API_KEY", "").strip() or None
+    curated_path = opts.curated_path or os.path.join(settings.data_dir, "smart_money_curated.json")
+
+    if not helius_key and not birdeye_key:
+        log.warning("neither HELIUS_API_KEY nor BIRDEYE_API_KEY is set; only curated source will be loaded")
+
+    winners = _winners_from_dexscreener_trending(opts.max_winners)
+    log.info("discovering against %d candidate winner tokens", len(winners))
+
+    wallets = discover.discover_wallets(
+        winner_mints=winners,
+        helius_key=helius_key,
+        birdeye_key=birdeye_key,
+        curated_path=curated_path,
+        helius_per_token_limit=opts.helius_per_token_limit,
+        birdeye_per_token_limit=opts.birdeye_per_token_limit,
+        birdeye_throttle_s=opts.birdeye_throttle_s,
+        helius_throttle_s=opts.helius_throttle_s,
+        min_appearances=opts.min_appearances,
+        cache_dir=settings.data_dir,           # share <DATA_DIR>/cache/
+        cache_ttl_s=opts.cache_ttl_s,
+    )
+    pathlib.Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
+    watchlist.save_watchlist(wallets, settings.data_dir)
+    log.info(
+        "wrote %d wallets to %s",
+        len(wallets), "MongoDB" if settings.mongodb_uri else settings.data_dir,
+    )
+    return wallets
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="meridian.datafeed.smart_money.refresh")
     ap.add_argument("--curated", default=None,
                     help="path to curated wallets JSON (default: <DATA_DIR>/smart_money_curated.json)")
-    ap.add_argument("--min-appearances", type=int, default=2,
-                    help="reject discovered wallets seen on fewer than N winners")
-    ap.add_argument("--max-winners", type=int, default=20,
-                    help="how many candidate winner tokens to query per source")
-    ap.add_argument("--helius-per-token", type=int, default=30,
-                    help="earliest buyers to pull per winner from Helius")
-    ap.add_argument("--birdeye-per-token", type=int, default=10,
-                    help="top traders to pull per winner from Birdeye (max 10)")
-    ap.add_argument("--birdeye-throttle-s", type=float, default=1.1,
-                    help="sleep between Birdeye calls (Standard tier = 1 RPS)")
-    ap.add_argument("--helius-throttle-s", type=float, default=0.15,
-                    help="sleep between Helius calls")
+    ap.add_argument("--min-appearances", type=int, default=2)
+    ap.add_argument("--max-winners", type=int, default=20)
+    ap.add_argument("--helius-per-token", type=int, default=30)
+    ap.add_argument("--birdeye-per-token", type=int, default=10)
+    ap.add_argument("--birdeye-throttle-s", type=float, default=1.1)
+    ap.add_argument("--helius-throttle-s", type=float, default=0.15)
+    ap.add_argument("--cache-ttl-s", type=int, default=cache.DEFAULT_TTL_S,
+                    help="seconds before a cached source response is considered stale")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="emit DEBUG-level logs (default is INFO)")
     args = ap.parse_args(argv)
@@ -78,28 +131,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         logging.DEBUG if args.verbose else logging.WARNING
     )
 
-    settings = get_settings()
-    helius_key = os.getenv("HELIUS_API_KEY", "").strip()
-    birdeye_key = os.getenv("BIRDEYE_API_KEY", "").strip()
-    curated_path = args.curated or _default_curated_path(settings.data_dir)
-
-    if not helius_key and not birdeye_key:
-        log.warning("neither HELIUS_API_KEY nor BIRDEYE_API_KEY is set; only curated source will be loaded")
-
-    winners = _winners_from_dexscreener_trending(args.max_winners)
-    log.info("discovering against %d candidate winner tokens", len(winners))
-
-    wallets = discover.discover_wallets(
-        winner_mints=winners,
-        helius_key=helius_key or None,
-        birdeye_key=birdeye_key or None,
-        curated_path=curated_path,
+    wallets = run_refresh(RefreshOptions(
+        max_winners=args.max_winners,
+        min_appearances=args.min_appearances,
         helius_per_token_limit=args.helius_per_token,
         birdeye_per_token_limit=args.birdeye_per_token,
         birdeye_throttle_s=args.birdeye_throttle_s,
         helius_throttle_s=args.helius_throttle_s,
-        min_appearances=args.min_appearances,
-    )
+        cache_ttl_s=args.cache_ttl_s,
+        curated_path=args.curated,
+    ))
 
     print(f"Identified {len(wallets)} smart-money wallets.")
     for w in wallets[:10]:
@@ -110,9 +151,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             f"{rank_str}  sources={w.sources}"
         )
 
-    watchlist.save_watchlist(wallets, settings.data_dir)
-    store_name = "MongoDB" if settings.mongodb_uri else settings.data_dir
-    print(f"Saved watchlist to {store_name}.")
+    settings = get_settings()
+    store = "MongoDB" if settings.mongodb_uri else settings.data_dir
+    print(f"Saved watchlist to {store}.")
     return 0
 
 

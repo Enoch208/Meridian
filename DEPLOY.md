@@ -22,12 +22,18 @@ Meridian is split into a **Python FastAPI backend** (deployed on Render via Dock
 
 2. **Set secret environment variables** (Render dashboard → Environment → Add):
 
-   | Key | Value |
-   |---|---|
-   | `SWARMS_API_KEY` | `sk-…` (your Swarms key) |
-   | `MERIDIAN_RUN_SECRET` | random secret string |
+   | Key | Value | Required for |
+   |---|---|---|
+   | `SWARMS_API_KEY` | `sk-…` (your Swarms key) | the daily shortlist (`/api/run`) |
+   | `MERIDIAN_RUN_SECRET` | random secret string | gating both run endpoints |
+   | `MONGODB_URI` | `mongodb+srv://…` | persisting the shortlist + track record + smart-money watchlist across restarts |
+   | `MONGODB_DB` | `meridian` | (default if unset) |
+   | `HELIUS_API_KEY` | from <https://helius.dev> | smart-money discovery (`/api/smart-money/refresh`) |
+   | `BIRDEYE_API_KEY` | from <https://birdeye.so/developers> | smart-money discovery — cross-validates Helius |
 
    The non-secret defaults (`SOLANA_RPC_URL`, `MERIDIAN_MODEL`, `DATA_DIR`) are already set in `backend/render.yaml` and will be applied automatically if you use the Blueprint flow.
+
+   `HELIUS_API_KEY` and `BIRDEYE_API_KEY` are only needed by `/api/smart-money/refresh` — set them once on Render and the weekly GitHub Action (`.github/workflows/smart-money-refresh.yml`) keeps the watchlist updating. Without them, the refresh endpoint will only load the curated seed list.
 
 3. **Persistent disk (strongly recommended):**
    The track record (`calls.jsonl`) lives in `DATA_DIR` (`/data` by default). On Render's free tier the filesystem is **ephemeral** — every deploy or restart wipes it and the public track record resets to zero. To preserve history:
@@ -44,7 +50,12 @@ Meridian is split into a **Python FastAPI backend** (deployed on Render via Dock
    Or trigger remotely once the service is up:
 
    ```bash
+   # Daily shortlist (Swarms swarm)
    curl -X POST https://<your-render-service>.onrender.com/api/run \
+        -H "x-run-secret: <MERIDIAN_RUN_SECRET>"
+
+   # Smart-money watchlist refresh (Helius + Birdeye)
+   curl -X POST https://<your-render-service>.onrender.com/api/smart-money/refresh \
         -H "x-run-secret: <MERIDIAN_RUN_SECRET>"
    ```
 
