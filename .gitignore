@@ -2,5 +2,8 @@
 /PRD_Meridian.md
 /docs/
 
+# Reference TypeScript bot — design input only, never committed.
+/tg-bot/
+
 # OS junk
 .DS_Store
